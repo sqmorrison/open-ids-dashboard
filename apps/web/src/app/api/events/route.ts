@@ -1,7 +1,9 @@
 import { createClient } from '@clickhouse/client';
 import { NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get('search') || '';
   // 1. Initialize the client (Note: In production, we'd use environment variables)
   const client = createClient({
     url: 'http://localhost:8123',
@@ -11,27 +13,44 @@ export async function GET() {
   });
 
   try {
-    // 2. Query the data
-    const resultSet = await client.query({
-      query: `
-        SELECT * FROM events 
-        ORDER BY timestamp DESC 
-        LIMIT 100
-      `,
-      format: 'JSONEachRow',
-    });
-
-    // 3. Convert the result to a JSON object
-    const data = await resultSet.json();
-
-    // 4. Return it to the browser
-    return NextResponse.json(data);
-    
-  } catch (error) {
-    console.error("Database Error:", error);
-    return NextResponse.json(
-      { error: 'Failed to fetch events' }, 
-      { status: 500 }
-    );
-  }
+      // Basic SQL construction. 
+      // In a production app with user input, strictly use parameterized queries (query_params) 
+      // to prevent SQL injection, though ClickHouse is generally read-heavy/safer.
+      
+      let sql = `
+        SELECT * FROM ids.events 
+        WHERE 1=1
+      `;
+      
+      const queryParams: Record<string, string | number> = {};
+  
+      if (query) {
+        // FIX: Concatenate IP and Port to allow searching "1.2.3.4:80"
+        // syntax: concat(toString(ip), ':', toString(port))
+        sql += `
+          AND (
+            alert_signature ilike {query_wild:String} OR
+            concat(toString(src_ip), ':', toString(src_port)) ilike {query_wild:String} OR
+            concat(toString(dest_ip), ':', toString(dest_port)) ilike {query_wild:String}
+          )
+        `;
+  
+        queryParams.query_wild = `%${query}%`;
+      }
+  
+      sql += ` ORDER BY timestamp DESC LIMIT 100`;
+  
+      const resultSet = await client.query({
+        query: sql,
+        format: 'JSONEachRow',
+        query_params: queryParams,
+      });
+  
+      const data = await resultSet.json();
+      return NextResponse.json(data);
+  
+    } catch (error) {
+      console.error('ClickHouse Error:', error);
+      return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 });
+    }
 }
