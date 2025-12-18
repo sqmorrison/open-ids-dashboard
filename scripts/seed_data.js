@@ -3,6 +3,8 @@ const { createClient } = require('@clickhouse/client');
 const client = createClient({
   url: 'http://localhost:8123',
   database: 'ids',
+  username: 'default',
+  password: 'admin',   
 });
 
 const SIGNATURES = [

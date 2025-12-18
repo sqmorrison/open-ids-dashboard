@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # The Analytics Engine
   clickhouse:
@@ -14,7 +12,12 @@ services:
     ulimits:
       nofile:
         soft: 262144
-        hard: 262144
+        hard: 262144     
+    environment:
+          CLICKHOUSE_DB: ids
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: admin  # In production, we'd use a .env file
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
 
   # The Dashboard (We will scaffold this in a moment)
   # web:
