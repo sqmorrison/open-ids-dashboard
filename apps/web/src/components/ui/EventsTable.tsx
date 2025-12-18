@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { IDSEvent } from "@/types/events"
+import { EventDetails } from "./EventDetails"
 import {
   Table,
   TableBody,
@@ -16,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 export function EventsTable() {
   const [events, setEvents] = useState<IDSEvent[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedEvent, setSelectedEvent] = useState<IDSEvent | null>(null)
 
   // Function to fetch data
   const fetchEvents = async () => {
@@ -40,6 +42,7 @@ export function EventsTable() {
   if (loading) return <div className="p-10">Loading Intelligence...</div>
 
   return (
+    <div>
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Live Traffic Feed ({events.length} Events)</CardTitle>
@@ -58,7 +61,7 @@ export function EventsTable() {
           </TableHeader>
           <TableBody>
             {events.map((event, i) => (
-              <TableRow key={i}>
+              <TableRow key={i} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedEvent(event)}>
                 <TableCell className="font-mono text-xs">
                   {new Date(event.timestamp).toLocaleTimeString()}
                 </TableCell>
@@ -84,5 +87,12 @@ export function EventsTable() {
         </Table>
       </CardContent>
     </Card>
+    
+    <EventDetails 
+      event={selectedEvent} 
+      open={!!selectedEvent} 
+      onOpenChange={(open) => !open && setSelectedEvent(null)} 
+    />
+    </div>
   )
 }
