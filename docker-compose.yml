@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  # The Analytics Engine
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: ids_clickhouse
+    ports:
+      - "8123:8123" # HTTP port for Next.js
+      - "9000:9000" # TCP port for Native clients (Vector)
+    volumes:
+      - ./packages/database/data:/var/lib/clickhouse
+      - ./packages/database/init:/docker-entrypoint-initdb.d
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  # The Dashboard (We will scaffold this in a moment)
+  # web:
+  #   build: ./apps/web
+  #   ports:
+  #     - "3000:3000"
