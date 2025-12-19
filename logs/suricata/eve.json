@@ -1,0 +1,1 @@
+{"timestamp": "2024-05-20T10:00:00.000+0000", "event_type": "alert", "src_ip": "1.1.1.1", "dest_ip": "2.2.2.2", "src_port": 443, "dest_port": 80, "proto": "TCP", "alert": {"severity": 1, "signature": "VECTOR DEBUG TEST", "action": "blocked"}}

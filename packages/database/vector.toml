@@ -1,0 +1,66 @@
+# packages/database/vector.toml
+
+[api]
+enabled = true
+address = "0.0.0.0:8686"
+
+[sources.suricata_logs]
+type = "file"
+include = ["/var/logs/suricata/eve.json"]
+ignore_older_secs = 600
+read_from = "end"
+
+[transforms.normalize_logs]
+type = "remap"
+inputs = ["suricata_logs"]
+source = '''
+  . = parse_json!(.message)
+
+  if .event_type != "alert" {
+    abort
+  }
+
+  .timestamp = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%f%z")
+
+  .src_ip = .src_ip
+  .dest_ip = .dest_ip
+  .src_port = .src_port
+  .dest_port = .dest_port
+  
+  # FIX: Use to_string() to force an error if .proto is null, so ?? works
+  .proto = to_string(.proto) ?? "UNKNOWN"
+
+  # Alert details
+  # FIX: We use casting to handle missing keys safely
+  .alert_signature = to_string(.alert.signature) ?? "Unknown"
+  .alert_severity = to_int(.alert.severity) ?? 3
+  .alert_action = to_string(.alert.action) ?? "allowed"
+
+  del(.alert)
+  del(.flow_id)
+  del(.payload)
+  del(.packet)
+  del(.packet_info)
+'''
+
+# SINK: Send to ClickHouse
+[sinks.clickhouse]
+type = "clickhouse"
+inputs = ["normalize_logs"]
+endpoint = "http://clickhouse:8123" 
+database = "ids"
+table = "events"
+skip_unknown_fields = true
+compression = "gzip"
+
+[sinks.clickhouse.auth]
+strategy = "basic"
+user = "default"
+password = "admin"  
+
+[sinks.clickhouse.encoding]
+timestamp_format = "unix"
+
+[sinks.clickhouse.batch]
+max_bytes = 10485760
+timeout_secs = 1

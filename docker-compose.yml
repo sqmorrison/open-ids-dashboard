@@ -18,7 +18,17 @@ services:
           CLICKHOUSE_USER: default
           CLICKHOUSE_PASSWORD: admin  # In production, we'd use a .env file
           CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
-
+  vector:
+      image: timberio/vector:latest-alpine
+      container_name: vector
+      depends_on:
+        - clickhouse
+      ports:
+        - "8686:8686" # Vector API
+      volumes:
+        - ${PWD}/packages/database/vector.toml:/etc/vector/vector.toml:ro        # We mount a shared logs volume so we can "fake" writing logs later
+        - ./logs/suricata:/var/logs/suricata  
+      command: ["--config", "/etc/vector/vector.toml"]
   # The Dashboard (We will scaffold this in a moment)
   # web:
   #   build: ./apps/web
