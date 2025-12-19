@@ -10,39 +10,39 @@ export default function Dashboard() {
   const [events, setEvents] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  const fetchEvents = async (query = '') => {
-    setIsLoading(true);
-    try {
-      // append query param if it exists
-      const url = query 
-        ? `/api/events?search=${encodeURIComponent(query)}` 
-        : '/api/events';
+  const [isInitialLoading, setIsInitialLoading] = useState(true); // New state
+  
+    const fetchEvents = async (query = '', isBackground = false) => {
+      // Only show loading spinner if it's NOT a background update
+      if (!isBackground) setIsInitialLoading(true);
       
-      const res = await fetch(url);
-      const data = await res.json();
-      setEvents(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      try {
+        const url = query 
+          ? `/api/events?search=${encodeURIComponent(query)}` 
+          : '/api/events';
+        
+        const res = await fetch(url);
+        const data = await res.json();
+        setEvents(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
 
   // Initial load
   // Poll for updates
-    useEffect(() => {
-      // 1. Fetch immediately when the search query changes
-      fetchEvents(searchQuery);
+  useEffect(() => {
+      // 1. Initial Load (shows spinner)
+      fetchEvents(searchQuery, false);
   
-      // 2. Set up the interval with the CURRENT query
+      // 2. Background Polling (NO spinner)
       const interval = setInterval(() => {
-        fetchEvents(searchQuery);
+        fetchEvents(searchQuery, true); 
       }, 5000);
   
-      // 3. Cleanup: Clear the interval when the component unmounts OR when searchQuery changes
       return () => clearInterval(interval);
-      
     }, [searchQuery]);
     
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -69,7 +69,7 @@ export default function Dashboard() {
         </form>
       </div>
 
-      <EventsTable data={events} isLoading={isLoading} />
+      <EventsTable data={events} isLoading={isInitialLoading} />
     </div>
   );
 }

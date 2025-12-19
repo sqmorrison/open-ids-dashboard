@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { motion, AnimatePresence } from "framer-motion";
 
 interface EventsTableProps {
   // changed from unknown to the specific type
@@ -47,12 +48,15 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {/* Added safe check (data || []) to prevent crash if data is undefined */}
+              <AnimatePresence initial={false}>
               {(data || []).map((event, i) => (
-                <TableRow 
-                  // If IDSEvent has a unique ID (e.g. event.id), use that instead of 'i'
-                  key={i} 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors" 
+                <motion.tr
+                  key={ i || event.timestamp} // Ensure you have a unique key!
+                  initial={{ opacity: 0, y: -20 }} // Start slightly above and invisible
+                  animate={{ opacity: 1, y: 0 }}   // Fade in and slide down
+                  exit={{ opacity: 0 }}            // If removed, fade out
+                  transition={{ duration: 0.3 }}
+                  className="hover:bg-muted/50 transition-colors"
                   onClick={() => setSelectedEvent(event)}
                 >
                   <TableCell className="font-mono text-xs whitespace-nowrap">
@@ -73,9 +77,9 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
                     {event.dest_ip}:{event.dest_port}
                   </TableCell>
                   <TableCell className="text-xs uppercase">{event.proto}</TableCell>
-                </TableRow>
+                </motion.tr>
               ))}
-              
+              </AnimatePresence>
               {/* Optional: Handle empty state */}
               {!isLoading && data?.length === 0 && (
                  <TableRow>
