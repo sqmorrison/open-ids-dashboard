@@ -46,7 +46,7 @@ export async function sendCriticalAlert(details: AlertDetails): Promise<void> {
   // 2. Format the Email Body (HTML)
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
-      <h2 style="color: #ef4444;">🚨 CRITICAL SECURITY ALERT</h2>
+      <h2 style="color: #ef4444;">CRITICAL SECURITY ALERT</h2>
       <p>The IDS has detected a <strong>Severity 1</strong> threat on the network.</p>
       
       <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
