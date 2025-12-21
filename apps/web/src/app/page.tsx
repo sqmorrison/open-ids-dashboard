@@ -8,11 +8,13 @@ import EventsTable from '@/components/ui/EventsTable';
 import IncidentsTable from '@/components/ui/IncidentsTable';
 import { IDSEvent, IDSIncident } from '@/types/events';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TrafficChart from '@/components/ui/TrafficChart';
 
 export default function Dashboard() {
   // State for data
   const [events, setEvents] = useState<IDSEvent[]>([]);
   const [incidents, setIncidents] = useState<IDSIncident[]>([]);
+  const [traffic, setTraffic] = useState([])
   
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,11 +31,13 @@ export default function Dashboard() {
       const queryParam = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
       const eventsUrl = `/api/events${queryParam}`;
       const incidentsUrl = `/api/incidents`; // Incidents usually ignore search unless backend supports it
+      const chartsUrl = `/api/stats/traffic`;
 
       // Fetch both in parallel
-      const [eventsRes, incidentsRes] = await Promise.all([
+      const [eventsRes, incidentsRes, trafficRes] = await Promise.all([
         fetch(eventsUrl),
-        fetch(incidentsUrl)
+        fetch(incidentsUrl),
+        fetch(chartsUrl)
       ]);
 
       if (eventsRes.ok) {
@@ -44,6 +48,11 @@ export default function Dashboard() {
       if (incidentsRes.ok) {
         const incidentsData = await incidentsRes.json();
         setIncidents(incidentsData);
+      }
+      
+      if (trafficRes.ok) {
+        const trafficData = await trafficRes.json();
+        setTraffic(trafficData);
       }
 
     } catch (err) {
@@ -102,6 +111,7 @@ export default function Dashboard() {
         <TabsList>
           <TabsTrigger value="incidents">Incidents (Aggregated)</TabsTrigger>
           <TabsTrigger value="live">Live Feed (Raw)</TabsTrigger>
+          <TabsTrigger value="chart">Traffic Chart</TabsTrigger>
         </TabsList>
 
         <TabsContent value="incidents">
@@ -110,6 +120,10 @@ export default function Dashboard() {
 
         <TabsContent value="live">
           <EventsTable data={events} isLoading={isLoading} />
+        </TabsContent>
+        
+        <TabsContent value="chart">
+          <TrafficChart data={traffic} />        
         </TabsContent>
       </Tabs>
     </div>
