@@ -1,14 +1,25 @@
 import { createClient } from '@clickhouse/client';
 import { NextResponse } from 'next/server';
 
-// 1. Define the shape of the data coming from ClickHouse
+/**
+ * /api/stats/roi - returns data for the 
+ * * Purpose:
+ * retreives events and calculates average cost saved. This is primarily for managers and c-suite execs who want to see ROI on this dashboard.
+ * * Architecture:
+ * - Database: ClickHouse (Optimized for OLAP/Aggregation)
+ * - Caching: Force-Dynamic - refreshes with real time data
+ * - Input: none
+ * - Output: returns total amount saved + cost breakdown
+ */
+
+// shape of the data coming from ClickHouse
 interface AlertStatsRow {
   category: string;
-  severity: number; // ClickHouse usually returns numbers for simple integers
+  severity: number;
   count: number | string; // UInt64 is often returned as a string to prevent overflow in JS
 }
 
-// 2. Define the shape of the ROI Breakdown item
+// shape of the ROI Breakdown item
 interface RoiBreakdownItem {
   category: string;
   count: number;
@@ -53,7 +64,6 @@ export async function GET() {
   }
 }
 
-// COST_MATRIX remains the same
 const COST_MATRIX: Record<string, number> = {
   'A Network Trojan was detected': 15000, 
   'Potentially Bad Traffic': 500,
@@ -64,7 +74,6 @@ const COST_MATRIX: Record<string, number> = {
   'SEV_3': 100,
 };
 
-// 3. Strictly typed function signature
 function calculateROI(data: AlertStatsRow[]) {
   let totalSaved = 0;
   const breakdown: RoiBreakdownItem[] = [];
