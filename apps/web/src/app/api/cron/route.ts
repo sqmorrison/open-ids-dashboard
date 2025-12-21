@@ -2,6 +2,17 @@ import { createClient } from '@clickhouse/client';
 import { NextResponse } from 'next/server';
 import { sendCriticalAlert } from '@/lib/email';
 
+/**
+ * /api/cron/routes.ts - cron job to send an email on a severe alert
+ * * Purpose:
+ * Alerts security specialists when a high security event occurs. Checks every minute for a high threat alert, making sure a high threat doesn't go unnoticed.
+ * * Architecture:
+ * - Database: ClickHouse (Optimized for OLAP/Aggregation)
+ * - Caching: Force-Dynamic - real-time requirement
+ * - Input: none
+ * - Action: sends an email upon high severity event
+ */
+
 // Prevent caching
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +24,7 @@ export async function GET() {
   });
 
   try {
-    // 1. Query for RECENT Critical Threats (Last 60 seconds)
+    // Query for RECENT Critical Threats (Last 60 seconds)
     // We group by signature/IP so we don't send 100 emails for 100 packets.
     const query = `
       SELECT
