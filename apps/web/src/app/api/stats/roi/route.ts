@@ -1,5 +1,5 @@
-import { createClient } from '@clickhouse/client';
 import { NextResponse } from 'next/server';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
 /**
  * /api/stats/roi - returns data for the ROI calculator
@@ -26,23 +26,24 @@ interface RoiBreakdownItem {
   saved: number;
 }
 
+const ROI_WINDOW_HOURS = 24;
+const SEVERITY_CRITICAL = 1;
+const SEVERITY_HIGH = 2;
+const SEVERITY_MEDIUM = 3;
+
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const client = createClient({
-    host: process.env.CLICKHOUSE_HOST,
-    username: process.env.CLICKHOUSE_USER,
-    password: process.env.CLICKHOUSE_PASSWORD,
-  });
-
   try {
+    const client = getClickHouseClient();
+
     const query = `
       SELECT
         alert_category as category,
         alert_severity as severity,
         count(*) as count
       FROM ids.events
-      WHERE timestamp >= now() - INTERVAL 24 HOUR
+      WHERE timestamp >= now() - INTERVAL ${ROI_WINDOW_HOURS} HOUR
       AND alert_severity > 0
       GROUP BY category, severity
     `;
@@ -87,8 +88,8 @@ function calculateROI(data: AlertStatsRow[]) {
     if (COST_MATRIX[row.category]) {
       costPerUnit = COST_MATRIX[row.category];
     } 
-    else if (row.severity === 1) costPerUnit = COST_MATRIX['SEV_1'];
-    else if (row.severity === 2) costPerUnit = COST_MATRIX['SEV_2'];
+    else if (row.severity === SEVERITY_CRITICAL) costPerUnit = COST_MATRIX['SEV_1'];
+    else if (row.severity === SEVERITY_HIGH) costPerUnit = COST_MATRIX['SEV_2'];
     else costPerUnit = COST_MATRIX['SEV_3'];
 
     const totalForCategory = costPerUnit * count;

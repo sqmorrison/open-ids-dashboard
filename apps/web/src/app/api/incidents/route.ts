@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@clickhouse/client';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
 /**
  * API: /api/incidents/route.js
@@ -24,22 +24,20 @@ interface IncidentRow {
   last_seen: string;
 }
 
-const client = createClient({
-  host: process.env.CLICKHOUSE_HOST,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-});
+const MAX_INCIDENTS_LIMIT = 50;
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    const client = getClickHouseClient();
+    
     const resultSet = await client.query({
       query: `
         SELECT
             src_ip,
-            any(src_country) as src_country,
-            any(src_country_code) as src_country_code,
+            any(src_country) as src_country, -- any() returns an arbitrary value from the group (all values are the same per IP)
+            any(src_country_code) as src_country_code, -- same as above
             alert_signature,
             count() as count,
             min(timestamp) as first_seen,
@@ -47,7 +45,7 @@ export async function GET() {
         FROM ids.events
         GROUP BY src_ip, alert_signature
         ORDER BY last_seen DESC
-        LIMIT 50
+        LIMIT ${MAX_INCIDENTS_LIMIT}
       `,
       format: 'JSONEachRow',
     });
@@ -70,7 +68,9 @@ export async function GET() {
     return NextResponse.json(safeData);
   } catch (error) {
     console.error('ClickHouse Incident Query Error:', error);
-    // Return empty array instead of 500 so the UI doesn't crash completely
-    return NextResponse.json([], { status: 200 }); 
+    return NextResponse.json(
+      { error: 'Failed to fetch incidents', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    ); 
   }
 }
