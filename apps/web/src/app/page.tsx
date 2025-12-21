@@ -1,16 +1,20 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+// components
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import EventsTable from '@/components/ui/EventsTable';
 import IncidentsTable from '@/components/ui/IncidentsTable';
-import { IDSEvent, IDSIncident } from '@/types/events';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TrafficChart from '@/components/ui/TrafficChart';
 import RoiCard from '@/components/ui/RoiCard';
+// types used
+import { IDSEvent, IDSIncident } from '@/types/events';
 
+// Main controller
+// This component only handles data fetching, state management, and arranging the components
 export default function Dashboard() {
   // State for data
   const [events, setEvents] = useState<IDSEvent[]>([]);
@@ -32,11 +36,11 @@ export default function Dashboard() {
       // Build URLs
       const queryParam = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
       const eventsUrl = `/api/events${queryParam}`;
-      const incidentsUrl = `/api/incidents`; // Incidents usually ignore search unless backend supports it
+      const incidentsUrl = `/api/incidents`;
       const chartsUrl = `/api/stats/traffic`;
       const roiUrl = `/api/stats/roi`;
 
-      // Fetch both in parallel
+      // Fetch all urls in parallel
       const [eventsRes, incidentsRes, trafficRes, roiRes] = await Promise.all([
         fetch(eventsUrl),
         fetch(incidentsUrl),
@@ -44,6 +48,7 @@ export default function Dashboard() {
         fetch(roiUrl)
       ]);
 
+      //if the data is okay from each fetch request, give it to the UI
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json();
         setEvents(eventsData);
@@ -71,12 +76,13 @@ export default function Dashboard() {
     }
   }, [searchQuery]);
 
-  // Effect: Initial Load + Polling
+  // Runs immediately on mount
+  // 5 second polling interval (for real time updates)
   useEffect(() => {
-    // 1. Initial Load
+    // Initial Load
     fetchData(false);
 
-    // 2. Background Polling (every 5s)
+    // Background polling
     const interval = setInterval(() => {
       fetchData(true);
     }, 5000);
@@ -87,9 +93,10 @@ export default function Dashboard() {
   // Handle Search Submit
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSearchQuery(searchInput); // Triggers the useEffect
+    setSearchQuery(searchInput);
   };
 
+  // Render Layer
   return (
     <div className="container mx-auto py-10 space-y-8">
       {/* Header Section */}
@@ -115,7 +122,7 @@ export default function Dashboard() {
         </form>
       </div>
 
-      {/* Tabs Section */}
+      {/* Tabs for various components */}
       <Tabs defaultValue="incidents" className="space-y-4">
         <TabsList>
           <TabsTrigger value="incidents">Incidents (Aggregated)</TabsTrigger>
