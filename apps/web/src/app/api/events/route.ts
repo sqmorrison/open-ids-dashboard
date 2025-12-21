@@ -1,6 +1,16 @@
 import { createClient } from '@clickhouse/client';
 import { NextResponse } from 'next/server';
 
+/**
+ * /api/events/route.ts - returns information on events based on clickup database based on suricata
+ * * Purpose:
+ * returns raw logs up to 100 events. Core display feature in dashboard.
+ * * Architecture:
+ * - Database: ClickHouse (Optimized for OLAP/Aggregation)
+ * - Caching: none
+ * - Input: can take in a string to match to event type or IPV4 address
+ */
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('search') || '';
