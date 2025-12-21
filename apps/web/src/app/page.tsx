@@ -1,75 +1,117 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Input } from "@/components/ui/input"; // Shadcn component
+import { useState, useEffect, useCallback } from 'react';
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react"; // If you have lucide icons installed
-import EventsTable from '@/components/ui/EventsTable'; // Your existing table
+import { Search } from "lucide-react";
+import EventsTable from '@/components/ui/EventsTable';
+import IncidentsTable from '@/components/ui/IncidentsTable';
+import { IDSEvent, IDSIncident } from '@/types/events';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
-  const [events, setEvents] = useState([]);
+  // State for data
+  const [events, setEvents] = useState<IDSEvent[]>([]);
+  const [incidents, setIncidents] = useState<IDSIncident[]>([]);
+  
+  // State for UI
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(true); // New state
-  
-    const fetchEvents = async (query = '', isBackground = false) => {
-      // Only show loading spinner if it's NOT a background update
-      if (!isBackground) setIsInitialLoading(true);
-      
-      try {
-        const url = query 
-          ? `/api/events?search=${encodeURIComponent(query)}` 
-          : '/api/events';
-        
-        const res = await fetch(url);
-        const data = await res.json();
-        setEvents(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsInitialLoading(false);
-      }
-    };
+  const [searchInput, setSearchInput] = useState(''); // Separate state for input field
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Initial load
-  // Poll for updates
+  // Unified Fetch Function
+  const fetchData = useCallback(async (isBackground = false) => {
+    // Only show spinner on initial load or manual search, not background polling
+    if (!isBackground) setIsLoading(true);
+
+    try {
+      // Build URLs
+      const queryParam = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
+      const eventsUrl = `/api/events${queryParam}`;
+      const incidentsUrl = `/api/incidents`; // Incidents usually ignore search unless backend supports it
+
+      // Fetch both in parallel
+      const [eventsRes, incidentsRes] = await Promise.all([
+        fetch(eventsUrl),
+        fetch(incidentsUrl)
+      ]);
+
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        setEvents(eventsData);
+      }
+
+      if (incidentsRes.ok) {
+        const incidentsData = await incidentsRes.json();
+        setIncidents(incidentsData);
+      }
+
+    } catch (err) {
+      console.error("Dashboard Fetch Error:", err);
+    } finally {
+      if (!isBackground) setIsLoading(false);
+    }
+  }, [searchQuery]);
+
+  // Effect: Initial Load + Polling
   useEffect(() => {
-      // 1. Initial Load (shows spinner)
-      fetchEvents(searchQuery, false);
-  
-      // 2. Background Polling (NO spinner)
-      const interval = setInterval(() => {
-        fetchEvents(searchQuery, true); 
-      }, 5000);
-  
-      return () => clearInterval(interval);
-    }, [searchQuery]);
-    
+    // 1. Initial Load
+    fetchData(false);
+
+    // 2. Background Polling (every 5s)
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  // Handle Search Submit
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchEvents(searchQuery);
+    setSearchQuery(searchInput); // Triggers the useEffect
   };
 
   return (
-    <div className="p-8 space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Intrusion Detection Logs</h1>
-        
+    <div className="container mx-auto py-10 space-y-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">SOC-in-a-Box Dashboard</h1>
+          <p className="text-muted-foreground">Real-time Network Threat Monitoring & Intelligence</p>
+        </div>
+
         {/* Search Bar */}
-        <form onSubmit={handleSearchSubmit} className="flex gap-2 w-full max-w-sm">
-          <Input 
-            placeholder="Search IP or Signature..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <Button type="submit" disabled={isLoading}>
-            <Search className="h-4 w-4 mr-2" />
-            Search
-          </Button>
+        <form onSubmit={handleSearchSubmit} className="flex w-full md:w-auto items-center space-x-2">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Filter by IP..."
+              className="pl-8"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </div>
+          <Button type="submit">Search</Button>
         </form>
       </div>
 
-      <EventsTable data={events} isLoading={isInitialLoading} />
+      {/* Tabs Section */}
+      <Tabs defaultValue="incidents" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="incidents">Incidents (Aggregated)</TabsTrigger>
+          <TabsTrigger value="live">Live Feed (Raw)</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="incidents">
+          <IncidentsTable data={incidents} isLoading={isLoading} />
+        </TabsContent>
+
+        <TabsContent value="live">
+          <EventsTable data={events} isLoading={isLoading} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

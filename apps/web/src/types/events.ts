@@ -9,4 +9,17 @@ export interface IDSEvent {
   alert_signature: string;
   alert_severity: number;
   alert_action: string;
+  src_country: string;
+  src_country_code: string;
+}
+
+export interface IDSIncident {
+  src_ip: string;
+  src_country: string;
+  src_country_code: string;
+  alert_signature: string;
+  alert_severity: number;
+  count: number;
+  first_seen: string;
+  last_seen: string;
 }
