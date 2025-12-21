@@ -6,10 +6,9 @@ export async function GET(request: Request) {
   const query = searchParams.get('search') || '';
   
   const client = createClient({
-    url: 'http://localhost:8123',
-    database: 'ids',
-    username: 'default',
-    password: 'admin',
+    host: process.env.CLICKHOUSE_HOST,
+    username: process.env.CLICKHOUSE_USER,
+    password: process.env.CLICKHOUSE_PASSWORD,
   });
 
   try {      
