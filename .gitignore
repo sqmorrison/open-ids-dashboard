@@ -1,0 +1,9 @@
+GeoLite2-City
+
+.DS_Store
+
+.DS_Store
+logs/suricata/eve.json
+logs/suricata/fast.log
+logs/suricata/stats.log
+logs/suricata/suricata.log
