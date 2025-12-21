@@ -1,7 +1,18 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@clickhouse/client';
 
-// 1. Define what the raw row looks like from the DB
+/**
+ * API: /api/incidents/route.js
+ * * Purpose:
+ * Reduces "Alert Fatigue" by grouping noisy individual packet logs into consolidated "Incidents."
+ * Instead of showing 1,000 logs for a single port scan, we show 1 Incident with a count of 1,000.
+ * * Logic:
+ * - Filters for non-zero severity (actual threats).
+ * - Groups by Source IP and Attack Signature.
+ * - Sorts by the most recent activity.
+ */
+
+// Define what the raw row looks like from the DB
 interface IncidentRow {
   src_ip: string;
   src_country: string;
@@ -23,8 +34,6 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // 2. Query - I've removed 'event_type' and 'alert_severity' temporarily
-    // to prevent crashes if those columns don't exist yet.
     const resultSet = await client.query({
       query: `
         SELECT
@@ -45,18 +54,17 @@ export async function GET() {
 
     const rawData = await resultSet.json<IncidentRow>();
 
-    // 3. Map safely to your frontend type
+    // Map safely to frontend type
     const safeData = rawData.map((row) => ({
       src_ip: row.src_ip,
       src_country: row.src_country,
       src_country_code: row.src_country_code,
       alert_signature: row.alert_signature,
-      // Parse the count (ClickHouse UInt64 comes as string to avoid overflow)
+      // Parse the count
       count: parseInt(row.count, 10), 
       first_seen: row.first_seen,
       last_seen: row.last_seen,
-      // Default severity since we removed it from the query
-      alert_severity: 3, 
+      alert_severity: row.alert_severity, 
     }));
 
     return NextResponse.json(safeData);
