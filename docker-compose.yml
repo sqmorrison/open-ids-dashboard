@@ -28,6 +28,7 @@ services:
       volumes:
         - ${PWD}/packages/database/vector.toml:/etc/vector/vector.toml:ro        # We mount a shared logs volume so we can "fake" writing logs later
         - ./logs/suricata:/var/logs/suricata  
+        - ./GeoLite2-City/GeoLite2-City.mmdb:/etc/vector/GeoLite2-City.mmdb:ro
       command: ["--config", "/etc/vector/vector.toml"]
   suricata:
       image: jasonish/suricata:latest
@@ -40,6 +41,7 @@ services:
         - ${PWD}/logs/suricata:/var/log/suricata
         - ${PWD}/rules:/var/lib/suricata/rules
       command: -c /etc/suricata/suricata.yaml -i eth0 -k none -s /var/lib/suricata/rules/local.rules
+      
   # The Dashboard (We will scaffold this in a moment)
   # web:
   #   build: ./apps/web
