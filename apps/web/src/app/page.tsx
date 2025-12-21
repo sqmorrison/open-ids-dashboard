@@ -9,13 +9,15 @@ import IncidentsTable from '@/components/ui/IncidentsTable';
 import { IDSEvent, IDSIncident } from '@/types/events';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TrafficChart from '@/components/ui/TrafficChart';
+import RoiCard from '@/components/ui/RoiCard';
 
 export default function Dashboard() {
   // State for data
   const [events, setEvents] = useState<IDSEvent[]>([]);
   const [incidents, setIncidents] = useState<IDSIncident[]>([]);
   const [traffic, setTraffic] = useState([])
-  
+  const [roi, setROI] = useState(null)
+
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState(''); // Separate state for input field
@@ -32,12 +34,14 @@ export default function Dashboard() {
       const eventsUrl = `/api/events${queryParam}`;
       const incidentsUrl = `/api/incidents`; // Incidents usually ignore search unless backend supports it
       const chartsUrl = `/api/stats/traffic`;
+      const roiUrl = `/api/stats/roi`;
 
       // Fetch both in parallel
-      const [eventsRes, incidentsRes, trafficRes] = await Promise.all([
+      const [eventsRes, incidentsRes, trafficRes, roiRes] = await Promise.all([
         fetch(eventsUrl),
         fetch(incidentsUrl),
-        fetch(chartsUrl)
+        fetch(chartsUrl),
+        fetch(roiUrl)
       ]);
 
       if (eventsRes.ok) {
@@ -53,6 +57,11 @@ export default function Dashboard() {
       if (trafficRes.ok) {
         const trafficData = await trafficRes.json();
         setTraffic(trafficData);
+      }
+      
+      if (roiRes.ok) {
+        const roiData = await roiRes.json();
+        setROI(roiData);
       }
 
     } catch (err) {
@@ -112,6 +121,7 @@ export default function Dashboard() {
           <TabsTrigger value="incidents">Incidents (Aggregated)</TabsTrigger>
           <TabsTrigger value="live">Live Feed (Raw)</TabsTrigger>
           <TabsTrigger value="chart">Traffic Chart</TabsTrigger>
+          <TabsTrigger value="ROI">Money Saved</TabsTrigger>
         </TabsList>
 
         <TabsContent value="incidents">
@@ -124,6 +134,10 @@ export default function Dashboard() {
         
         <TabsContent value="chart">
           <TrafficChart data={traffic} />        
+        </TabsContent>
+        
+        <TabsContent value="ROI">
+          <RoiCard data={roi} />        
         </TabsContent>
       </Tabs>
     </div>
