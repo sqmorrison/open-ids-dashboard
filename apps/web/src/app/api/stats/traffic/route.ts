@@ -1,6 +1,17 @@
 import { createClient } from '@clickhouse/client';
 import { NextResponse } from 'next/server';
 
+/**
+ * /api/stats/traffic - provides traffic (event) info to the chart feature on dahsboard
+ * * Purpose:
+ * This chart displays the number of events relative to time running. This allows analysts to track peak hours of traffic, and make decisions accordingly.
+ * * Architecture:
+ * - Database: ClickHouse (Optimized for OLAP/Aggregation)
+ * - Caching: none - will auto update with each poll on frontend
+ * - Input: none
+ * - Output: number of events aggregated by minute
+ */
+
 export async function GET() {
   const client = createClient({
     host: process.env.CLICKHOUSE_HOST,
@@ -29,8 +40,6 @@ export async function GET() {
 
     const data = await resultSet.json();
     
-    // Format the time slightly for the frontend if needed, 
-    // though passing ISO string is usually fine for Recharts to handle.
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching traffic stats:', error);
