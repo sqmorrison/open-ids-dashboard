@@ -6,8 +6,6 @@
 
 **A high-performance, open-source SOC dashboard capable of ingesting, analyzing, and visualizing network threats in real-time.**
 
-![Demo](demo.gif)
-
 ## Architecture
 
 ```mermaid
