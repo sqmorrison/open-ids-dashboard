@@ -2,7 +2,7 @@ import { createClient } from '@clickhouse/client';
 import { NextResponse } from 'next/server';
 
 /**
- * /api/stats/roi - returns data for the 
+ * /api/stats/roi - returns data for the ROI calculator
  * * Purpose:
  * retreives events and calculates average cost saved. This is primarily for managers and c-suite execs who want to see ROI on this dashboard.
  * * Architecture:
