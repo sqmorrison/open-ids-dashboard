@@ -41,9 +41,3 @@ services:
         - ${PWD}/logs/suricata:/var/log/suricata
         - ${PWD}/rules:/var/lib/suricata/rules
       command: -c /etc/suricata/suricata.yaml -i eth0 -k none -s /var/lib/suricata/rules/local.rules
-      
-  # The Dashboard (We will scaffold this in a moment)
-  # web:
-  #   build: ./apps/web
-  #   ports:
-  #     - "3000:3000"
