@@ -24,7 +24,7 @@ export default function Dashboard() {
 
   // State for UI
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchInput, setSearchInput] = useState(''); // Separate state for input field
+  const [searchInput, setSearchInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   // Unified Fetch Function
