@@ -1,5 +1,5 @@
-import { createClient } from '@clickhouse/client';
 import { NextResponse } from 'next/server';
+import { getClickHouseClient } from '@/lib/clickhouse';
 import { sendCriticalAlert } from '@/lib/email';
 
 /**
@@ -13,18 +13,17 @@ import { sendCriticalAlert } from '@/lib/email';
  * - Action: sends an email upon high severity event
  */
 
+const SEVERITY_CRITICAL = 1;
+const CRON_CHECK_INTERVAL_MINUTES = 1;
+
 // Prevent caching
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const client = createClient({
-    host: process.env.CLICKHOUSE_HOST,
-    username: process.env.CLICKHOUSE_USER,
-    password: process.env.CLICKHOUSE_PASSWORD,
-  });
-
   try {
-    // Query for RECENT Critical Threats (Last 60 seconds)
+    const client = getClickHouseClient();
+
+    // Query for RECENT Critical Threats (Last minute)
     // We group by signature/IP so we don't send 100 emails for 100 packets.
     const query = `
       SELECT
@@ -32,8 +31,8 @@ export async function GET() {
         src_ip,
         count(*) as count
       FROM ids.events
-      WHERE timestamp >= now() - INTERVAL 1 MINUTE
-      AND alert_severity = 1
+      WHERE timestamp >= now() - INTERVAL ${CRON_CHECK_INTERVAL_MINUTES} MINUTE
+      AND alert_severity = ${SEVERITY_CRITICAL}
       GROUP BY signature, src_ip
     `;
 

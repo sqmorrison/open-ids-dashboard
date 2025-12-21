@@ -1,8 +1,8 @@
-import { createClient } from '@clickhouse/client';
 import { NextResponse } from 'next/server';
+import { getClickHouseClient } from '@/lib/clickhouse';
 
 /**
- * /api/stats/traffic - provides traffic (event) info to the chart feature on dahsboard
+ * /api/stats/traffic - provides traffic (event) info to the chart feature on dashboard
  * * Purpose:
  * This chart displays the number of events relative to time running. This allows analysts to track peak hours of traffic, and make decisions accordingly.
  * * Architecture:
@@ -12,25 +12,24 @@ import { NextResponse } from 'next/server';
  * - Output: number of events aggregated by minute
  */
 
-export async function GET() {
-  const client = createClient({
-    host: process.env.CLICKHOUSE_HOST,
-    username: process.env.CLICKHOUSE_USER,
-    password: process.env.CLICKHOUSE_PASSWORD,
-  });
+const TRAFFIC_WINDOW_HOURS = 1;
+const FILL_STEP_SECONDS = 60;
 
+export async function GET() {
   try {
-    // Query: Count events per minute for the last 60 minutes.
-    // WITH FILL STEP 60 ensures we get a row for every minute, even if count is 0.
+    const client = getClickHouseClient();
+
+    // Query: Count events per minute for the last hour.
+    // WITH FILL STEP ensures we get a row for every minute, even if count is 0.
     const query = `
       SELECT
         toStartOfMinute(timestamp) as time,
         count(*) as count
       FROM ids.events
-      WHERE timestamp >= now() - INTERVAL 1 HOUR
+      WHERE timestamp >= now() - INTERVAL ${TRAFFIC_WINDOW_HOURS} HOUR
       GROUP BY time
       ORDER BY time ASC
-      WITH FILL STEP 60
+      WITH FILL STEP ${FILL_STEP_SECONDS}
     `;
 
     const resultSet = await client.query({
