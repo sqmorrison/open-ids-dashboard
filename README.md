@@ -53,13 +53,13 @@ ensure your .env has CLICKHOUSE_HOST, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD, CLIC
 
 ### 2. Setup Geo-Location Data
 This project uses MaxMind for IP geolocation. You must download the database manually due to licensing
-1.) Sign up for a free account at MaxMind (www.maxmind.com)
-2.) Download the GeoLite2 City database (MMDB format)
-3.) Create a folder named GeoLite2-City in the root (or where your Vector config expects it)
+#### 1.) Sign up for a free account at MaxMind (www.maxmind.com)
+#### 2.) Download the GeoLite2 City database (MMDB format)
+#### 3.) Create a folder named GeoLite2-City in the root (or where your Vector config expects it)
 ```bash
 mkdir GeoLite2-City
 ```
-4.) Place the .mmdb file inside /GeoLite2-City (so it should look like /GeoLite2-City/GeoLite2-City.mmdb)
+#### 4.) Place the .mmdb file inside /GeoLite2-City (so it should look like /GeoLite2-City/GeoLite2-City.mmdb)
 
 ### 3. Initialize the Database
 The database initializes automatically when the container starts. Run this from the root directory:
