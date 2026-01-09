@@ -24,18 +24,17 @@ source = '''
     abort
   }
 
-  .timestamp = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%f%z")
+  ts = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%f%z")
+  .timestamp = to_unix_timestamp(ts, unit: "milliseconds")
 
   .src_ip = .src_ip
   .dest_ip = .dest_ip
   .src_port = .src_port
   .dest_port = .dest_port
   
-  # FIX: Use to_string() to force an error if .proto is null, so ?? works
   .proto = to_string(.proto) ?? "UNKNOWN"
 
   # Alert details
-  # FIX: We use casting to handle missing keys safely
   .alert_signature = to_string(.alert.signature) ?? "Unknown"
   .alert_severity = to_int(.alert.severity) ?? 3
   .alert_action = to_string(.alert.action) ?? "allowed"
