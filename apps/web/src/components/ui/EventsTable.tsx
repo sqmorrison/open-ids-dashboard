@@ -45,7 +45,7 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Live Traffic Feed ({data?.length || 0} Events)</CardTitle>
-            {/* Optional: Add a little live indicator */}
+            {/* TODO: Add a live indicator */}
             <Badge variant="outline" className="animate-pulse text-green-500 border-green-500">
               ● Live
             </Badge>
@@ -55,20 +55,20 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px]">Time</TableHead>
-                <TableHead className="w-[100px]">Severity</TableHead>
+                <TableHead className="w-25">Time</TableHead>
+                <TableHead className="w-25">Severity</TableHead>
                 <TableHead>Signature</TableHead>
-                <TableHead className="w-[200px]">Source</TableHead>
+                <TableHead className="w-50">Source</TableHead>
                 <TableHead>Destination</TableHead>
-                <TableHead className="w-[80px]">Proto</TableHead>
+                <TableHead className="w-20">Proto</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               <AnimatePresence initial={false} mode="popLayout">
                 {(data || []).map((event, i) => (
                   <motion.tr
-                    layout // Smoothly adjust layout when items move
-                    key={event.timestamp + i} // Unique key combination
+                    layout
+                    key={event.timestamp + i}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -92,18 +92,17 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
                     <TableCell className="font-medium text-sm">
                       <div className="flex flex-col">
                          <span>{event.event_type === 'alert' ? event.alert_signature : 'Network Flow'}</span>
-                         {/* Optional: Show category if available in future */}
+                         {/* TODO: Show category if available in future */}
                       </div>
                     </TableCell>
 
-                    {/* UPDATED SOURCE COLUMN */}
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         <span className="font-mono text-xs text-foreground font-semibold">
                           {event.src_ip}:{event.src_port}
                         </span>
                         
-                        {/* Only render flag if we have a valid country code */}
+                        {/* conditionally render flag if we have a valid country code */}
                         {event.src_country_code && event.src_country_code !== 'XX' ? (
                           <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
                             <Flag 
