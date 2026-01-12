@@ -172,3 +172,30 @@ This dashboard is data agnostic, we have a default config for Suricata, but you 
 
 ### How to implement 
 Modify your vector.toml to ingest your custom logs and use a Vector Remap Language (VRL) transform to rename your fields to match the columns above before sinking to ClickHouse
+
+## AI Co-Pilot (Optional)
+
+Turn your dashboard into an active analyst. The AI module runs locally (via Ollama) to explain alerts, suggest remediation, and write SQL queries for you.
+
+**Privacy Note:** No data leaves your network. All inference happens on your hardware.
+
+### 1. Enable the Service
+Uncomment the `ai` service in your `docker-compose.yml` file.
+
+### 2. Start the Stack
+```bash
+docker-compose up -d
+```
+### 3. Initialize the Model (One-Time Setup)
+
+Since we don't bundle the 4GB model file in the git repo, you must pull it once after the container starts. We recommend mistral (fast/light) or llama3 (smarter/heavier).
+```Bash
+# For a balance of speed and intelligence (Recommended)
+docker exec -it open-ids-ai ollama pull mistral
+# OR for higher accuracy (Requires ~6GB RAM)
+docker exec -it open-ids-ai ollama pull llama3
+```
+### 4. Hardware Requirements:
+    RAM: Minimum 8GB system total (4GB dedicated to Docker).
+    CPU: AVX support (standard on most CPUs post-2015).
+    GPU: Optional. If you have an NVIDIA GPU, pass it to Docker for 10x speed.
