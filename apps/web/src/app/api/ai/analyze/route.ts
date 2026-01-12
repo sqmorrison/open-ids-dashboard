@@ -1,40 +1,39 @@
 import { NextResponse } from 'next/server';
 
-export const maxDuration = 60; // Allow 60 seconds for slow local CPUs
+export const maxDuration = 60; 
 
 export async function POST(req: Request) {
   try {
     const { event } = await req.json();
 
-    // Construct the Prompt
-    // We give the AI the specific JSON context of the alert
+    // Dynamically choose the host based on where Next.js is running
+    const aiHost = process.env.AI_HOST || '127.0.0.1'; 
+    const aiUrl = `http://${aiHost}:11434/api/generate`;
+    
     const prompt = `
     You are a Tier 3 Security Operations Center (SOC) Analyst. 
     Analyze the following Intrusion Detection System (IDS) alert.
     
     Alert Data:
-    - Signature: ${event.alert?.signature || "Unknown"}
-    - Category: ${event.alert?.category || "Unknown"}
-    - Severity: ${event.alert?.severity || "Unknown"}
+    - Signature: ${event.alert_signature || "Unknown"}  <-- NOTE: Fixed variable name (alert_signature vs alert.signature)
+    - Severity: ${event.alert_severity || "Unknown"}    <-- NOTE: Fixed variable name
     - Source IP: ${event.src_ip}
     - Destination IP: ${event.dest_ip}:${event.dest_port}
     - Payload (Snippet): ${event.payload_printable || "No payload data"}
 
     Instructions:
     1. Explain what this specific attack IS in plain English.
-    2. Assess if this looks like a False Positive (e.g., is the Source IP internal?).
-    3. Recommend ONE concrete remediation step (e.g., "Block IP", "Check Cron jobs").
+    2. Assess if this looks like a False Positive.
+    3. Recommend ONE concrete remediation step.
     
     Keep your response under 100 words. Be direct.
     `;
 
-    // 2. Call the Local AI Service (Ollama)
-    // Note: 'ai' is the docker service name
-    const response = await fetch('http://ai:11434/api/generate', {
+    const response = await fetch(aiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'mistral', // or 'llama3' depending on what the user pulled
+        model: 'mistral', 
         prompt: prompt,
         stream: false
       }),
@@ -53,7 +52,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("AI Analysis Failed:", error);
     return NextResponse.json(
-        { analysis: "Failed to reach AI Engine." }, 
+        { analysis: "Failed to reach AI Engine. Is Docker running?" }, 
         { status: 500 }
     );
   }
