@@ -1,5 +1,5 @@
 services:
-  # The Analytics Engine
+  # 1. The Analytics Engine
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: ids_clickhouse
@@ -12,44 +12,82 @@ services:
     ulimits:
       nofile:
         soft: 262144
-        hard: 262144     
+        hard: 262144      
     environment:
-          CLICKHOUSE_DB: ids
-          CLICKHOUSE_USER: default
-          CLICKHOUSE_PASSWORD: admin  # In production, we'd use a .env file
-          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      CLICKHOUSE_DB: ids
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: admin
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    networks:
+      - ids_network
+
+  # 2. Log Ingestion & Transformation
   vector:
-      image: timberio/vector:latest-alpine
-      container_name: vector
-      depends_on:
-        - clickhouse
-      ports:
-        - "8686:8686" # Vector API
-      volumes:
-        - ${PWD}/packages/database/vector.toml:/etc/vector/vector.toml:ro        # We mount a shared logs volume so we can "fake" writing logs later
-        - ./logs/suricata:/var/logs/suricata  
-        - ./GeoLite2-City/GeoLite2-City.mmdb:/etc/vector/GeoLite2-City.mmdb:ro
-      command: ["--config", "/etc/vector/vector.toml"]
+    image: timberio/vector:latest-alpine
+    container_name: vector
+    depends_on:
+      - clickhouse
+    ports:
+      - "8686:8686" # Vector API
+      - "8687:8687" # NEW: Mock Data Input
+    volumes:
+      # Mount the TOML config
+      - ./packages/database/vector.toml:/etc/vector/vector.toml:ro
+      # Mount the GeoIP DB
+      - ./GeoLite2-City/GeoLite2-City.mmdb:/etc/vector/GeoLite2-City.mmdb:ro
+      # Mount the shared logs (so it can read from Suricata)
+      - ./logs/suricata:/var/logs/suricata  
+    command: ["--config", "/etc/vector/vector.toml"]
+    networks:
+      - ids_network
+
+  # 3. The IDS (Suricata)
   suricata:
-      image: jasonish/suricata:latest
-      container_name: suricata
-      cap_add:
-        - NET_ADMIN
-        - NET_RAW
-        - SYS_NICE
-      volumes:
-        - ${PWD}/logs/suricata:/var/log/suricata
-        - ${PWD}/rules:/var/lib/suricata/rules
-      command: -c /etc/suricata/suricata.yaml -i eth0 -k none -s /var/lib/suricata/rules/local.rules  
+    image: jasonish/suricata:latest
+    container_name: suricata
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_NICE
+    volumes:
+      - ./logs/suricata:/var/log/suricata
+      - ./rules:/var/lib/suricata/rules
+    # Note: On macOS/Windows, 'eth0' is the container interface, not your wifi
+    command: -c /etc/suricata/suricata.yaml -i eth0 -k none
+    networks:
+      - ids_network
+
+  # 4. Local AI (Ollama)
   ai:
-      image: ollama/ollama:latest
-      container_name: open-ids-ai
-      restart: unless-stopped
-      ports:
-        - "11434:11434"
-      volumes:
-        - ollama_data:/root/.ollama
-      networks:
-        - ids_network
+    image: ollama/ollama:latest
+    container_name: open-ids-ai
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - ids_network
+
+  # 5. Mock Data Generator (The Python Script)
+  datagen:
+    image: python:3.9-slim
+    container_name: ids_datagen
+    volumes:
+      - ./scripts:/app  # Ensure your mock_traffic.py is in a 'scripts' folder at root
+    working_dir: /app
+    # Install requests and run the script
+    command: >
+      sh -c "pip install requests && python mock_traffic.py"
+    networks:
+      - ids_network
+    depends_on:
+      - vector
+
+# --- NETWORK & VOLUME DEFINITIONS ---
+networks:
+  ids_network:
+    driver: bridge
+
 volumes:
   ollama_data:

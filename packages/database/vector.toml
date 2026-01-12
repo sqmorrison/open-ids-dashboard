@@ -14,6 +14,11 @@ include = ["/var/logs/suricata/eve.json"]
 ignore_older_secs = 600
 read_from = "end"
 
+[sources.mock_http]
+type = "http_server"
+address = "0.0.0.0:8687"     # New port for data
+encoding = "json"            # Auto-parses the JSON body
+
 [transforms.suricata_parse]
 type = "remap"
 inputs = ["suricata_logs"]
@@ -46,9 +51,29 @@ source = '''
   del(.packet_info)
 '''
 
+# This ensures the mock data looks exactly like the output of suricata_parse
+[transforms.mock_normalize]
+type = "remap"
+inputs = ["mock_http"]
+source = '''
+  # Parse timestamp from ISO string to Unix MS (matching your schema)
+  ts = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%fZ")
+  .timestamp = to_unix_timestamp(ts, unit: "milliseconds")
+
+  # Ensure fields exist or default
+  .proto = "TCP"
+  .alert_signature = .alert.signature
+  .alert_severity = .alert.severity
+  .alert_action = "allowed"
+
+  # Clean up nested object to match your flat schema
+  del(.alert)
+  del(.event_type)
+'''
+
 [transforms.enrich_geoip]
   type = "remap"
-  inputs = ["suricata_parse"]
+  inputs = ["suricata_parse", "mock_normalize"]
   source = '''
   # 1. Initialize defaults
   .src_country = "Unknown"
