@@ -1,69 +1,167 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Code, Play, Loader2 } from "lucide-react";
+import { Search, Code, Play, Loader2, AlertTriangle, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export function QueryBuilder() {
   const [prompt, setPrompt] = useState("");
   const [generatedSql, setGeneratedSql] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingAi, setLoadingAi] = useState(false);
+  
+  // Execution State
+  const [loadingQuery, setLoadingQuery] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
+  // 1. Generate SQL via AI
   const handleGenerate = async () => {
     if (!prompt) return;
-    setLoading(true);
+    setLoadingAi(true);
+    setError(null);
+    setResults([]);
+    
     try {
       const res = await fetch("/api/ai/sql", {
         method: "POST",
         body: JSON.stringify({ userQuery: prompt }),
       });
       const data = await res.json();
+      
+      if (data.error) throw new Error(data.error);
       setGeneratedSql(data.sql);
+    } catch (err) {
+      setError("Failed to generate SQL. Ensure AI service is running.");
     } finally {
-      setLoading(false);
+      setLoadingAi(false);
     }
   };
 
-  // Execute SQL (Reusing your existing generic query endpoint if you have one, 
-  // or we'd need to make a quick one that accepts raw SQL - strictly controlled!)
+  // 2. Execute SQL via Database
   const handleExecute = async () => {
-    // Implementation depends on if you want to allow arbitrary SQL execution 
-    // for the MVP, you might just display the SQL for now.
-    alert(`Executing: ${generatedSql}`); 
+    if (!generatedSql) return;
+    setLoadingQuery(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/db/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sql: generatedSql }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Query failed");
+      }
+
+      setResults(data.data);
+      if (data.data.length === 0) {
+        setError("Query executed successfully but returned no results.");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Query Execution Failed";
+      setError(msg);
+    } finally {
+      setLoadingQuery(false);
+    }
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        <Input 
-          placeholder="e.g. Show me all Critical alerts from the last 2 hours..." 
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-        />
-        <Button onClick={handleGenerate} disabled={loading}>
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-          <span className="ml-2 hidden sm:block">Generate</span>
-        </Button>
+    <div className="space-y-6">
+      {/* Input Section */}
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium text-muted-foreground">Ask the Database</label>
+        <div className="flex gap-2">
+          <Input 
+            placeholder="e.g. Show me the last 5 critical alerts from China..." 
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
+            className="font-mono text-sm"
+          />
+          <Button onClick={handleGenerate} disabled={loadingAi}>
+            {loadingAi ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+            <span className="ml-2 hidden sm:block">Generate</span>
+          </Button>
+        </div>
       </div>
 
+      {/* SQL Review Card */}
       {generatedSql && (
-        <Card className="p-4 bg-muted/50 border-dashed animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
-              <Code className="w-3 h-3" />
-              <span>Generated SQL</span>
+        <Card className="bg-muted/30 border-dashed">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+                <Code className="w-3 h-3" />
+                <span>Generated SQL</span>
+              </div>
+              <Button 
+                size="sm" 
+                className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white border-none" 
+                onClick={handleExecute}
+                disabled={loadingQuery}
+              >
+                {loadingQuery ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+                Run Query
+              </Button>
             </div>
-            <Button size="sm" variant="ghost" className="h-6 text-xs hover:text-emerald-500" onClick={handleExecute}>
-              <Play className="w-3 h-3 mr-1" /> Run Query
-            </Button>
-          </div>
-          <code className="text-sm font-mono text-foreground break-all">
-            {generatedSql}
-          </code>
+            
+            <code className="block text-sm font-mono text-foreground bg-background p-3 rounded border">
+              {generatedSql}
+            </code>
+
+            {error && (
+              <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 p-2 rounded">
+                <AlertTriangle className="w-3 h-3" />
+                {error}
+              </div>
+            )}
+          </CardContent>
         </Card>
+      )}
+
+      {/* Results Table */}
+      {results.length > 0 && (
+        <div className="rounded-md border overflow-hidden">
+            <div className="bg-muted/50 p-2 border-b flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Database className="w-3 h-3" />
+                Query Results ({results.length} rows)
+            </div>
+            <div className="overflow-x-auto max-h-[400px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {Object.keys(results[0]).map((key) => (
+                      <TableHead key={key} className="whitespace-nowrap">{key}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {results.map((row, i) => (
+                    <TableRow key={i}>
+                      {Object.values(row).map((val: any, j) => (
+                        <TableCell key={j} className="font-mono text-xs whitespace-nowrap">
+                          {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+        </div>
       )}
     </div>
   );
