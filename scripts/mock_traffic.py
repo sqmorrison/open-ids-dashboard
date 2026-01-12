@@ -5,8 +5,7 @@ import requests
 from datetime import datetime
 
 # Configuration
-VECTOR_URL = "http://localhost:8686"
-# VECTOR_URL = "http://vector:8686"  # Docker internal URL
+VECTOR_URL = "http://vector:8687"
 # If running locally outside docker, use "http://localhost:8686"
 
 alerts = [
