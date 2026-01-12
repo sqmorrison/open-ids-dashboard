@@ -12,6 +12,7 @@ import TrafficChart from '@/components/ui/TrafficChart';
 import RoiCard from '@/components/ui/RoiCard';
 // types used
 import { IDSEvent, IDSIncident } from '@/types/events';
+import { ModeToggle } from '@/components/ui/ToggleModeButton';
 import { QueryBuilder } from '@/components/ui/QueryBuilder';
 
 // Types for API responses
@@ -20,13 +21,10 @@ interface TrafficData {
   count: number;
 }
 
-interface RoiData {
-  totalSaved: number;
-  breakdown: Array<{
-    category: string;
-    count: number;
-    saved: number;
-  }>;
+interface SeverityStats {
+  critical: number;
+  high: number;
+  medium: number;
 }
 
 // Constants
@@ -58,8 +56,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<IDSEvent[]>([]);
   const [incidents, setIncidents] = useState<IDSIncident[]>([]);
   const [traffic, setTraffic] = useState<TrafficData[]>([]);
-  const [roi, setROI] = useState<RoiData | null>(null);
-  
+  const [stats, setStats] = useState<SeverityStats>({ critical: 0, high: 0, medium: 0 });  
   // State for error handling
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +82,7 @@ export default function Dashboard() {
       const roiUrl = `/api/stats/roi`;
 
       // Fetch all urls in parallel with timeout
-      const [eventsRes, incidentsRes, trafficRes, roiRes] = await Promise.all([
+      const [eventsRes, incidentsRes, trafficRes, statsRes] = await Promise.all([
         fetchWithTimeout(eventsUrl, FETCH_TIMEOUT_MS),
         fetchWithTimeout(incidentsUrl, FETCH_TIMEOUT_MS),
         fetchWithTimeout(chartsUrl, FETCH_TIMEOUT_MS),
@@ -117,12 +114,8 @@ export default function Dashboard() {
         console.error('Traffic fetch failed:', errorData);
       }
       
-      if (roiRes.ok) {
-        const roiData = await roiRes.json();
-        setROI(roiData);
-      } else {
-        const errorData = await roiRes.json().catch(() => ({}));
-        console.error('ROI fetch failed:', errorData);
+      if (statsRes.ok) {
+        setStats(await statsRes.json());
       }
 
     } catch (err) {
@@ -184,21 +177,23 @@ export default function Dashboard() {
             </Button>
           </div>
         )}
-
-        {/* Search Bar */}
-        <form onSubmit={handleSearchSubmit} className="flex w-full md:w-auto items-center space-x-2">
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Filter by IP..."
-              className="pl-8"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-          </div>
-          <Button type="submit">Search</Button>
-        </form>
+        <div className='flex flex-row justify-around'>
+          <ModeToggle />
+          {/* Search Bar */}
+          <form onSubmit={handleSearchSubmit} className="flex w-full md:w-auto items-center space-x-2">
+            <div className="relative flex-1 md:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Filter by IP..."
+                className="pl-8"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+            </div>
+            <Button type="submit">Search</Button>
+          </form>
+        </div>
       </div>
 
       {/* Tabs for various components */}
@@ -224,7 +219,10 @@ export default function Dashboard() {
         </TabsContent>
         
         <TabsContent value="ROI">
-          <RoiCard data={roi} />
+          <RoiCard 
+            criticalCount={stats.critical} 
+            highCount={stats.high} 
+          />
         </TabsContent>
         
         <TabsContent value="AI">
