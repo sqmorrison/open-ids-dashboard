@@ -5,22 +5,30 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   try {
     const { userQuery } = await req.json();
-
-    // DYNAMIC URL SELECTION:
-    // If running in Docker (hostname 'web' or similar), use 'ai'.
-    // If running locally (npm run dev), use '127.0.0.1'.
-    // We default to '127.0.0.1' for development safety, or use env var if set.
+    
+    // Check environment for Docker vs Localhost
     const aiHost = process.env.AI_HOST || '127.0.0.1'; 
     const aiUrl = `http://${aiHost}:11434/api/generate`;
 
-    console.log(`Connecting to AI at: ${aiUrl}`); // Debug Log
-
+    // Stronger System Prompt
     const prompt = `
     You are a Database Expert. Convert the request into ClickHouse SQL.
-    Table: ids.events
-    Columns: timestamp, src_ip, dest_ip, alert_severity (1=Crit, 2=High, 3=Med), alert_category.
+    
+    Table Schema: ids.events
+    Columns: 
+    - timestamp (DateTime64)
+    - src_ip (String)
+    - dest_ip (String)
+    - alert_severity (UInt8: 1=Critical, 2=High, 3=Med)
+    - alert_category (String)
+    
     Request: "${userQuery}"
-    Rules: Return ONLY SQL. No Markdown.
+    
+    CRITICAL RULES:
+    1. Return RAW SQL only. 
+    2. Do NOT use Markdown formatting (no \`\`\`).
+    3. Do NOT include explanations like "Here is the query".
+    4. Start immediately with the word SELECT.
     `;
 
     const response = await fetch(aiUrl, {
@@ -34,21 +42,31 @@ export async function POST(req: Request) {
     });
 
     if (!response.ok) {
-        const errText = await response.text();
-        console.error("AI Service Error:", errText);
-        return NextResponse.json({ error: `Ollama Error: ${response.statusText}` }, { status: response.status });
+        return NextResponse.json({ error: "AI Service Offline" }, { status: 503 });
     }
 
     const data = await response.json();
-    
-    // Clean markdown if present
-    let sql = data.response.trim();
-    sql = sql.replace(/```sql/g, '').replace(/```/g, '').trim();
+    let rawText = data.response;
 
-    return NextResponse.json({ sql });
+    // --- SANITIZATION LOGIC ---
+    // 1. Remove Markdown code blocks if present
+    rawText = rawText.replace(/```sql/g, '').replace(/```/g, '');
+
+    // 2. Find the start of the SQL command
+    // This ignores the "Here is your query:" chatter
+    const selectIndex = rawText.toUpperCase().indexOf('SELECT');
+    
+    if (selectIndex === -1) {
+        return NextResponse.json({ error: "AI failed to generate a SELECT statement." }, { status: 400 });
+    }
+
+    // 3. Extract everything from SELECT onwards
+    const cleanSql = rawText.substring(selectIndex).trim();
+
+    return NextResponse.json({ sql: cleanSql });
 
   } catch (error) {
-    console.error("Critical AI Route Failure:", error);
-    return NextResponse.json({ error: "Failed to reach AI service. Is Docker running?" }, { status: 500 });
+    console.error("AI Route Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
