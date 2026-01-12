@@ -20,13 +20,10 @@ interface TrafficData {
   count: number;
 }
 
-interface RoiData {
-  totalSaved: number;
-  breakdown: Array<{
-    category: string;
-    count: number;
-    saved: number;
-  }>;
+interface SeverityStats {
+  critical: number;
+  high: number;
+  medium: number;
 }
 
 // Constants
@@ -58,8 +55,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<IDSEvent[]>([]);
   const [incidents, setIncidents] = useState<IDSIncident[]>([]);
   const [traffic, setTraffic] = useState<TrafficData[]>([]);
-  const [roi, setROI] = useState<RoiData | null>(null);
-  
+  const [stats, setStats] = useState<SeverityStats>({ critical: 0, high: 0, medium: 0 });  
   // State for error handling
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +81,7 @@ export default function Dashboard() {
       const roiUrl = `/api/stats/roi`;
 
       // Fetch all urls in parallel with timeout
-      const [eventsRes, incidentsRes, trafficRes, roiRes] = await Promise.all([
+      const [eventsRes, incidentsRes, trafficRes, statsRes] = await Promise.all([
         fetchWithTimeout(eventsUrl, FETCH_TIMEOUT_MS),
         fetchWithTimeout(incidentsUrl, FETCH_TIMEOUT_MS),
         fetchWithTimeout(chartsUrl, FETCH_TIMEOUT_MS),
@@ -117,12 +113,8 @@ export default function Dashboard() {
         console.error('Traffic fetch failed:', errorData);
       }
       
-      if (roiRes.ok) {
-        const roiData = await roiRes.json();
-        setROI(roiData);
-      } else {
-        const errorData = await roiRes.json().catch(() => ({}));
-        console.error('ROI fetch failed:', errorData);
+      if (statsRes.ok) {
+        setStats(await statsRes.json());
       }
 
     } catch (err) {
@@ -225,7 +217,10 @@ export default function Dashboard() {
         </TabsContent>
         
         <TabsContent value="ROI">
-          <RoiCard data={roi} />
+          <RoiCard 
+            criticalCount={stats.critical} 
+            highCount={stats.high} 
+          />
         </TabsContent>
       </Tabs>
     </div>
