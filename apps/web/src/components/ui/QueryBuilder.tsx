@@ -14,6 +14,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+// Define a generic type for dynamic SQL results
+type QueryResultRow = Record<string, unknown>;
+
 export function QueryBuilder() {
   const [prompt, setPrompt] = useState("");
   const [generatedSql, setGeneratedSql] = useState("");
@@ -21,7 +24,7 @@ export function QueryBuilder() {
   
   // Execution State
   const [loadingQuery, setLoadingQuery] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<QueryResultRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // 1. Generate SQL via AI
@@ -76,6 +79,13 @@ export function QueryBuilder() {
     } finally {
       setLoadingQuery(false);
     }
+  };
+
+  // Helper to safely render unknown cell values
+  const renderCell = (value: unknown): string => {
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value);
   };
 
   return (
@@ -151,9 +161,9 @@ export function QueryBuilder() {
                 <TableBody>
                   {results.map((row, i) => (
                     <TableRow key={i}>
-                      {Object.values(row).map((val: any, j) => (
+                      {Object.values(row).map((val, j) => (
                         <TableCell key={j} className="font-mono text-xs whitespace-nowrap">
-                          {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                          {renderCell(val)}
                         </TableCell>
                       ))}
                     </TableRow>
