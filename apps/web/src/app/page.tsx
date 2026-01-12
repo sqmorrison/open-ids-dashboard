@@ -12,6 +12,7 @@ import TrafficChart from '@/components/ui/TrafficChart';
 import RoiCard from '@/components/ui/RoiCard';
 // types used
 import { IDSEvent, IDSIncident } from '@/types/events';
+import { QueryBuilder } from '@/components/ui/QueryBuilder';
 
 // Types for API responses
 interface TrafficData {
@@ -207,6 +208,7 @@ export default function Dashboard() {
           <TabsTrigger value="live">Live Feed (Raw)</TabsTrigger>
           <TabsTrigger value="chart">Traffic Chart</TabsTrigger>
           <TabsTrigger value="ROI">Money Saved</TabsTrigger>
+          <TabsTrigger value="AI">AI Features</TabsTrigger>
         </TabsList>
 
         <TabsContent value="incidents">
@@ -223,6 +225,10 @@ export default function Dashboard() {
         
         <TabsContent value="ROI">
           <RoiCard data={roi} />
+        </TabsContent>
+        
+        <TabsContent value="AI">
+          <QueryBuilder />
         </TabsContent>
       </Tabs>
     </div>
