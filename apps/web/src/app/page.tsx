@@ -12,6 +12,7 @@ import TrafficChart from '@/components/ui/TrafficChart';
 import RoiCard from '@/components/ui/RoiCard';
 // types used
 import { IDSEvent, IDSIncident } from '@/types/events';
+import { ModeToggle } from '@/components/ui/ToggleModeButton';
 
 // Types for API responses
 interface TrafficData {
@@ -183,21 +184,23 @@ export default function Dashboard() {
             </Button>
           </div>
         )}
-
-        {/* Search Bar */}
-        <form onSubmit={handleSearchSubmit} className="flex w-full md:w-auto items-center space-x-2">
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Filter by IP..."
-              className="pl-8"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-          </div>
-          <Button type="submit">Search</Button>
-        </form>
+        <div className='flex flex-row justify-around'>
+          <ModeToggle />
+          {/* Search Bar */}
+          <form onSubmit={handleSearchSubmit} className="flex w-full md:w-auto items-center space-x-2">
+            <div className="relative flex-1 md:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Filter by IP..."
+                className="pl-8"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+            </div>
+            <Button type="submit">Search</Button>
+          </form>
+        </div>
       </div>
 
       {/* Tabs for various components */}
