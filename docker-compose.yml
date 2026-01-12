@@ -40,4 +40,16 @@ services:
       volumes:
         - ${PWD}/logs/suricata:/var/log/suricata
         - ${PWD}/rules:/var/lib/suricata/rules
-      command: -c /etc/suricata/suricata.yaml -i eth0 -k none -s /var/lib/suricata/rules/local.rules
+      command: -c /etc/suricata/suricata.yaml -i eth0 -k none -s /var/lib/suricata/rules/local.rules  
+  ai:
+      image: ollama/ollama:latest
+      container_name: open-ids-ai
+      restart: unless-stopped
+      ports:
+        - "11434:11434"
+      volumes:
+        - ollama_data:/root/.ollama
+      networks:
+        - ids_network
+volumes:
+  ollama_data:
