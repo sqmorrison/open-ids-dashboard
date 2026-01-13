@@ -1,5 +1,5 @@
 services:
-  # 1. The Analytics Engine
+  # The Analytics Engine
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: ids_clickhouse
@@ -21,7 +21,7 @@ services:
     networks:
       - ids_network
 
-  # 2. Log Ingestion & Transformation
+  # Log Ingestion & Transformation
   vector:
     image: timberio/vector:latest-alpine
     container_name: vector
@@ -41,7 +41,7 @@ services:
     networks:
       - ids_network
 
-  # 3. The IDS (Suricata)
+  # The IDS (Suricata)
   suricata:
     image: jasonish/suricata:latest
     container_name: suricata
