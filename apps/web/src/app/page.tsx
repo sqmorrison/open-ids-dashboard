@@ -14,6 +14,7 @@ import RoiCard from '@/components/ui/RoiCard';
 import { IDSEvent, IDSIncident } from '@/types/events';
 import { ModeToggle } from '@/components/ui/ToggleModeButton';
 import { QueryBuilder } from '@/components/ui/QueryBuilder';
+import { RedTeamControl } from '@/components/ui/RedTeamControl';
 
 // Types for API responses
 interface TrafficData {
@@ -157,6 +158,7 @@ export default function Dashboard() {
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">SOC-in-a-Box Dashboard</h1>
           <p className="text-muted-foreground">Real-time Network Threat Monitoring & Intelligence</p>
+          <RedTeamControl />
         </div>
 
         {/* Error Banner */}
