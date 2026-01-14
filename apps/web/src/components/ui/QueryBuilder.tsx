@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea"; // Add this
 
 // Define a generic type for dynamic SQL results
 type QueryResultRow = Record<string, unknown>;
@@ -115,7 +116,7 @@ export function QueryBuilder() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
                 <Code className="w-3 h-3" />
-                <span>Generated SQL</span>
+                <span>Generated SQL (Editable)</span>
               </div>
               <Button 
                 size="sm" 
@@ -128,10 +129,13 @@ export function QueryBuilder() {
               </Button>
             </div>
             
-            <code className="block text-sm font-mono text-foreground bg-background p-3 rounded border">
-              {generatedSql}
-            </code>
-
+            {/* CHANGED: Textarea instead of Code block */}
+            <Textarea 
+              className="font-mono text-sm bg-background min-h-25"
+              value={generatedSql}
+              onChange={(e) => setGeneratedSql(e.target.value)}
+            />
+      
             {error && (
               <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 p-2 rounded">
                 <AlertTriangle className="w-3 h-3" />
