@@ -12,7 +12,6 @@ import TrafficChart from '@/components/ui/TrafficChart';
 import RoiCard from '@/components/ui/RoiCard';
 import { ModeToggle } from '@/components/ui/ToggleModeButton';
 import { QueryBuilder } from '@/components/ui/QueryBuilder';
-import { RedTeamControl } from '@/components/ui/RedTeamControl';
 import GlobalThreatMap from '@/components/ui/GlobalThreatMap';
 
 // types used
@@ -132,10 +131,7 @@ export default function Dashboard() {
         </div>
 
         {/* Global Controls */}
-        <div className='flex items-center gap-4'>
-            {/* Moved Red Team Button here for cleaner layout */}
-            <RedTeamControl /> 
-            
+        <div className='flex items-center gap-4'>            
             <ModeToggle />
             
             <form onSubmit={handleSearchSubmit} className="flex items-center space-x-2">
@@ -183,7 +179,6 @@ export default function Dashboard() {
         </TabsContent>
         
         <TabsContent value="chart">
-          {/* FIXED: Passed the handler to update time range */}
           <TrafficChart 
             data={traffic} 
             onTimeRangeChange={(range) => setTimeRange(range)} 
