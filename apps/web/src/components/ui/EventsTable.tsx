@@ -229,7 +229,7 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
                     <span className="text-zinc-500 text-xs uppercase tracking-wider">Raw Payload / JSON</span>
                  </div>
                  
-                 <ScrollArea className="h-[250px] w-full rounded-md border border-zinc-800 bg-zinc-950 p-4">
+                 <ScrollArea className="h-62.5 w-full rounded-md border border-zinc-800 bg-zinc-950 p-4">
                    <pre className="text-[11px] font-mono leading-relaxed text-emerald-500/90 whitespace-pre-wrap break-all">
                      {selectedEvent.raw_json 
                         ? JSON.stringify(JSON.parse(selectedEvent.raw_json), null, 2) 
