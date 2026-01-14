@@ -1,30 +1,44 @@
 'use client';
 
+import { useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button"; // Assuming standard shadcn button
 
 interface TrafficData {
   time: string;
   count: number;
 }
 
-export default function TrafficChart({ data }: { data: TrafficData[] }) {
+interface TrafficChartProps {
+  data: TrafficData[];
+  onTimeRangeChange?: (range: '1H' | '12H' | '24H') => void;
+}
 
-  // Helper 1: Format for the X-Axis (e.g. "10:45")
+export default function TrafficChart({ data, onTimeRangeChange }: TrafficChartProps) {
+  const [range, setRange] = useState<'1H' | '12H' | '24H'>('1H');
+
+  const handleRangeChange = (newRange: '1H' | '12H' | '24H') => {
+    setRange(newRange);
+    if (onTimeRangeChange) {
+      onTimeRangeChange(newRange);
+    }
+  };
+
+  // Helper 1: Format for the X-Axis
   const formatAxis = (timeStr: string) => {
     if (!timeStr) return "";
-    // Safety: Treat missing offsets as UTC
     const safeTime = timeStr.endsWith("Z") || timeStr.includes("+") ? timeStr : `${timeStr}Z`;
     
     return new Date(safeTime).toLocaleTimeString('en-US', {
       timeZone: 'America/Chicago',
       hour: '2-digit', 
       minute: '2-digit',
-      hour12: false // Set to true if you want "10:45 PM"
+      hour12: false 
     });
   };
 
-  // Helper 2: Format for the Tooltip (e.g. "Jan 14, 10:45:00 AM")
+  // Helper 2: Format for the Tooltip
   const formatTooltip = (timeStr: string) => {
     if (!timeStr) return "";
     const safeTime = timeStr.endsWith("Z") || timeStr.includes("+") ? timeStr : `${timeStr}Z`;
@@ -42,9 +56,31 @@ export default function TrafficChart({ data }: { data: TrafficData[] }) {
 
   return (
     <Card className="col-span-4 lg:col-span-3 bg-zinc-950 border-zinc-800">
-      <CardHeader>
-        <CardTitle className="text-zinc-100">Network Traffic (Last Hour)</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-zinc-100 text-base font-medium">
+          Network Traffic ({range})
+        </CardTitle>
+        
+        {/* Time Interval Toggles */}
+        <div className="flex gap-1 bg-zinc-900/50 p-1 rounded-md border border-zinc-800">
+          {(['1H', '12H', '24H'] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => handleRangeChange(r)}
+              className={`
+                px-3 py-1 text-xs font-medium rounded transition-all
+                ${range === r 
+                  ? "bg-zinc-800 text-zinc-100 shadow-sm" 
+                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+                }
+              `}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
       </CardHeader>
+      
       <CardContent className="pl-2">
         <div className="h-75 w-full">
           <ResponsiveContainer width="100%" height={300}>
@@ -57,7 +93,6 @@ export default function TrafficChart({ data }: { data: TrafficData[] }) {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
               
-              {/* UPDATED XAxis */}
               <XAxis 
                 dataKey="time" 
                 tickFormatter={formatAxis} 
@@ -65,7 +100,8 @@ export default function TrafficChart({ data }: { data: TrafficData[] }) {
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                minTickGap={30}
+                // Increase gap for 24H view so labels don't overlap
+                minTickGap={range === '24H' ? 50 : 30} 
               />
               
               <YAxis 
@@ -76,7 +112,6 @@ export default function TrafficChart({ data }: { data: TrafficData[] }) {
                 tickFormatter={(value) => `${value}`}
               />
               
-              {/* UPDATED Tooltip */}
               <Tooltip 
                 contentStyle={{ backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '6px' }}
                 labelFormatter={formatTooltip}
@@ -89,6 +124,8 @@ export default function TrafficChart({ data }: { data: TrafficData[] }) {
                 stroke="#ef4444" 
                 fillOpacity={1} 
                 fill="url(#colorCount)" 
+                // Smooth out the curve slightly less if looking at 24H of data
+                isAnimationActive={false} 
               />
             </AreaChart>
           </ResponsiveContainer>
