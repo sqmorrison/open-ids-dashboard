@@ -23,6 +23,7 @@ import Flag from "react-world-flags"
 import { AiAnalysis } from "@/components/ui/AiAnalysis";
 import { Button } from "@/components/ui/button";
 import { Eye, ShieldAlert } from "lucide-react";
+import { formatToLocal } from "@/lib/formatDate";
 
 interface ExtendedIDSEvent extends IDSEvent {
   payload_printable?: string; 
@@ -87,7 +88,7 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
                     className="hover:bg-muted/50 transition-colors group"
                   >
                     <TableCell className="font-mono text-xs whitespace-nowrap text-muted-foreground">
-                      {new Date(event.timestamp).toLocaleTimeString([], { hour12: false })}
+                      {formatToLocal(event.timestamp)}
                     </TableCell>
                     
                     <TableCell>
