@@ -83,6 +83,8 @@ services:
       - ids_network
     depends_on:
       - vector
+    environment:
+    - PYTHONUNBUFFERED=1
 
 # --- NETWORK & VOLUME DEFINITIONS ---
 networks:

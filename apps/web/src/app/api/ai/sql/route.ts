@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     alert_signature String        <-- SEARCH THIS for descriptions (e.g. "Malware", "Trojan")
     alert_severity  UInt8         (1=Critical, 2=High, 3=Medium)
     alert_category  String        <-- SEARCH THIS for categories
-    raw_json        String        <-- SEARCH THIS for deep packet inspection
+    raw_json        String        <-- SEARCH THIS for deep packet inspection (NOTE: 'payload' field does NOT exist, use 'raw_json' instead)
     -------------------------------------
 
     RULES:
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     4. TEXT SEARCH STRATEGY:
        - If the user asks for "China", "Malware", or "Attack", search 'alert_signature', 'alert_category', or 'raw_json'.
        - Example: (alert_signature ILIKE '%China%' OR raw_json ILIKE '%China%')
+    5. FIELD NAMING: The table does NOT have a 'payload' field. Use 'raw_json' instead for any payload-related queries.
 
     --- EXAMPLES ---
     Input: "Show me the last 5 critical alerts"

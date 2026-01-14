@@ -6,12 +6,21 @@ from datetime import datetime, timezone
 
 # Configuration
 # Ensure this matches the port defined in your vector.toml [sources.http_logs]
-VECTOR_URL = "http://vector:8686" 
+VECTOR_URL = "http://vector:8687"
 
 # Helper to generate valid random IPs
 def random_ip(prefix=None):
     if prefix:
-        return f"{prefix}.{random.randint(1, 254)}.{random.randint(1, 254)}"
+        # Count how many octets are already in the prefix
+        octet_count = len(prefix.split('.'))
+        # Generate remaining octets to complete 4 total
+        remaining = 4 - octet_count
+        if remaining <= 0:
+            return prefix  # Already complete
+        parts = [prefix]
+        for _ in range(remaining):
+            parts.append(str(random.randint(1, 254)))
+        return '.'.join(parts)
     return f"{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}"
 
 alerts_templates = [
@@ -70,11 +79,11 @@ while True:
     
     # Generate dynamic IPs so the dashboard looks alive
     src = random_ip(template.get("src_ip_prefix"))
-    dest = "10.0.0.5" # Your internal server
+    dest = "10.0.0.5" 
     
-    # Construct Suricata EVE JSON format
-    # We add "raw_json" field simulation here if Vector doesn't add it automatically
-    current_time = datetime.now(timezone.utc).isoformat()
+    # FIX: Manually format to "YYYY-MM-DDTHH:MM:SS.ssssssZ"
+    # This matches Vector's "%Y-%m-%dT%H:%M:%S.%fZ" exactly
+    current_time = datetime.utcnow().isoformat() + "Z"
     
     event = {
         "timestamp": current_time,
@@ -93,18 +102,13 @@ while True:
             "category": template["category"],
             "severity": template["severity"]
         },
-        # Adding a fake payload helps the dashboard look "real"
         "payload_printable": f"Fake Payload: {template['signature']} from {src}",
         "stream": 0,
-        "packet": "AAAA", # Fake base64 packet
-        "packet_info": {
-            "linktype": 1
-        }
+        "packet": "AAAA", 
+        "packet_info": { "linktype": 1 }
     }
 
     try:
-        # Send to Vector via HTTP
-        # Verify your vector.toml source is type = "http_server"
         response = requests.post(VECTOR_URL, json=event)
         if response.status_code == 200:
             print(f"[{time.strftime('%H:%M:%S')}] Sent: {template['signature']} from {src}")
@@ -114,5 +118,4 @@ while True:
     except Exception as e:
         print(f"Error sending log: {e}")
 
-    # Random delay (fast enough to populate DB, slow enough to read logs)
     time.sleep(random.uniform(0.1, 1.5))

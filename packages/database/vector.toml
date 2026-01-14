@@ -51,24 +51,23 @@ source = '''
   del(.packet_info)
 '''
 
-# This ensures the mock data looks exactly like the output of suricata_parse
 [transforms.mock_normalize]
 type = "remap"
 inputs = ["mock_http"]
 source = '''
-  # Parse timestamp from ISO string to Unix MS (matching your schema)
+  .raw_json = encode_json(.)
+
   ts = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%fZ")
   .timestamp = to_unix_timestamp(ts, unit: "milliseconds")
 
-  # Ensure fields exist or default
-  .proto = "TCP"
+  .proto = .proto || "TCP"
   .alert_signature = .alert.signature
   .alert_severity = .alert.severity
+  
+  .alert_category = .alert.category   # Map the category field
   .alert_action = "allowed"
 
-  # Clean up nested object to match your flat schema
   del(.alert)
-  del(.event_type)
 '''
 
 [transforms.enrich_geoip]
@@ -98,7 +97,7 @@ endpoint = "http://clickhouse:8123"
 database = "ids"
 table = "events"
 skip_unknown_fields = true
-compression = "gzip"
+compression = "none"
 
 [sinks.clickhouse.auth]
 strategy = "basic"
@@ -111,3 +110,6 @@ timestamp_format = "unix"
 [sinks.clickhouse.batch]
 max_bytes = 10485760
 timeout_secs = 1
+
+[sinks.clickhouse.request]
+retry_attempts = 3
