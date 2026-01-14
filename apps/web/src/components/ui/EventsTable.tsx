@@ -27,10 +27,15 @@ import { AiAnalysis } from "@/components/ui/AiAnalysis"
 import { Eye, ShieldAlert, FileJson, Copy, Check } from "lucide-react"
 import { formatToLocal } from "@/lib/formatDate"
 
-// Extend type to include the raw_json field we need
+// 1. IMPORT YOUR NEW STATUS COMPONENT
+import { StatusSelect } from "./StatusSelect"
+
+// 2. UPDATE TYPE DEFINITION
 interface ExtendedIDSEvent extends IDSEvent {
+  event_uuid: string;     // Needed for the update API
+  current_status: string; // From the JOIN query
   payload_printable?: string; 
-  raw_json?: string; // <--- ADDED THIS
+  raw_json?: string;
 }
 
 interface EventsTableProps {
@@ -87,15 +92,18 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
                 <TableHead className="text-zinc-400">Signature</TableHead>
                 <TableHead className="w-48 text-zinc-400">Source</TableHead>
                 <TableHead className="text-zinc-400">Destination</TableHead>
+                {/* 3. NEW COLUMN HEADER */}
+                <TableHead className="w-32 text-zinc-400">Triage</TableHead>
                 <TableHead className="w-16 text-right text-zinc-400">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               <AnimatePresence initial={false} mode="popLayout">
-                {(data || []).map((event, i) => (
+                {(data || []).map((event) => (
                   <motion.tr
                     layout
-                    key={event.timestamp + i}
+                    // 4. USE UUID FOR KEY (Better Performance)
+                    key={event.event_uuid}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -145,6 +153,14 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
                       {event.dest_ip}:{event.dest_port}
                     </TableCell>
                     
+                    {/* 5. NEW STATUS COLUMN */}
+                    <TableCell>
+                        <StatusSelect 
+                            uuid={event.event_uuid} 
+                            initialStatus={event.current_status} 
+                        />
+                    </TableCell>
+                    
                     <TableCell className="text-right">
                        <Button 
                          variant="ghost" 
@@ -161,7 +177,7 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
               
               {!isLoading && data?.length === 0 && (
                  <TableRow>
-                   <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                   <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                      No threats detected. System is clean.
                    </TableCell>
                  </TableRow>
@@ -171,7 +187,7 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
         </CardContent>
       </Card>
 
-      {/* EVENT DETAILS MODAL */}
+      {/* EVENT DETAILS MODAL (Unchanged) */}
       <Dialog 
         open={!!selectedEvent} 
         onOpenChange={(open) => !open && setSelectedEvent(null)}
@@ -233,7 +249,7 @@ export default function EventsTable({ data, isLoading }: EventsTableProps) {
                    <pre className="text-[11px] font-mono leading-relaxed text-emerald-500/90 whitespace-pre-wrap break-all">
                      {selectedEvent.raw_json 
                         ? JSON.stringify(JSON.parse(selectedEvent.raw_json), null, 2) 
-                        : JSON.stringify(selectedEvent, null, 2) // Fallback if raw_json missing
+                        : JSON.stringify(selectedEvent, null, 2)
                      }
                    </pre>
                  </ScrollArea>

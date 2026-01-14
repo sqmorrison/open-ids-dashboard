@@ -107,7 +107,7 @@ export default function Dashboard() {
     } finally {
       if (!isBackground) setIsLoading(false);
     }
-  }, [searchQuery, timeRange]); // FIXED: Added timeRange to dependency array
+  }, [searchQuery, timeRange]);
 
   // Initial Load & Polling
   useEffect(() => {
@@ -126,7 +126,7 @@ export default function Dashboard() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">SOC-in-a-Box Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Aerial Eye</h1>
           <p className="text-muted-foreground">Real-time Network Threat Monitoring & Intelligence</p>
         </div>
 
