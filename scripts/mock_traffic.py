@@ -2,80 +2,117 @@ import time
 import json
 import random
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Configuration
-VECTOR_URL = "http://vector:8687"
-# If running locally outside docker, use "http://localhost:8686"
+# Ensure this matches the port defined in your vector.toml [sources.http_logs]
+VECTOR_URL = "http://vector:8686" 
 
-alerts = [
+# Helper to generate valid random IPs
+def random_ip(prefix=None):
+    if prefix:
+        return f"{prefix}.{random.randint(1, 254)}.{random.randint(1, 254)}"
+    return f"{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}"
+
+alerts_templates = [
+    # 1. The "China" Scenario (For your AI Demo)
     {
-        "category": "Attempted Information Leak",
-        "signature": "ET SCAN Nmap Scripting Engine User-Agent",
-        "severity": 2,
-        "src_ip": "192.168.1.105",
-        "dest_ip": "10.0.0.5",
-        "dest_port": 80
+        "category": "APT Activity (China)",
+        "signature": "ET TROJAN APT.CN.Emissary Panda Beacon",
+        "severity": 1,
+        "src_ip_prefix": "59.110", # Alibaba Cloud / China Range simulation
+        "dest_port": 443,
+        "proto": "TCP"
     },
+    # 2. Standard Malware
     {
         "category": "Potentially Bad Traffic",
         "signature": "ET MALWARE Win32/Generic Beacon",
         "severity": 1,
-        "src_ip": "10.0.0.15",
-        "dest_ip": "185.100.x.x",
-        "dest_port": 443
+        "src_ip_prefix": "185.100",
+        "dest_port": 8080,
+        "proto": "TCP"
     },
+    # 3. Web Attacks
     {
         "category": "Web Application Attack",
         "signature": "ET WEB_SERVER SQL Injection Attempt",
-        "severity": 1,
-        "src_ip": "45.33.x.x",
-        "dest_ip": "10.0.0.5",
-        "dest_port": 443
+        "severity": 2,
+        "src_ip_prefix": "45.33",
+        "dest_port": 443,
+        "proto": "TCP"
     },
+    # 4. Noise (Internal Traffic)
     {
         "category": "Misc Activity",
         "signature": "SURICATA ICMP Ping",
         "severity": 3,
-        "src_ip": "192.168.1.50",
-        "dest_ip": "10.0.0.5",
-        "dest_port": 0
+        "src_ip_prefix": "192.168.1",
+        "dest_port": 0,
+        "proto": "ICMP"
+    },
+    # 5. SSH Brute Force
+    {
+        "category": "Attempted Administrator Privilege Gain",
+        "signature": "ET SCAN LibSSH Based Brute Force",
+        "severity": 2,
+        "src_ip_prefix": "103.20",
+        "dest_port": 22,
+        "proto": "TCP"
     }
 ]
 
-print("Starting Mock Traffic Generator...")
+print(f"Starting Mock Traffic Generator targeting {VECTOR_URL}...")
 
 while True:
-    # Pick a random alert
-    alert = random.choice(alerts)
+    # Pick a random alert template
+    template = random.choice(alerts_templates)
+    
+    # Generate dynamic IPs so the dashboard looks alive
+    src = random_ip(template.get("src_ip_prefix"))
+    dest = "10.0.0.5" # Your internal server
     
     # Construct Suricata EVE JSON format
+    # We add "raw_json" field simulation here if Vector doesn't add it automatically
+    current_time = datetime.now(timezone.utc).isoformat()
+    
     event = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": current_time,
         "event_type": "alert",
-        "src_ip": alert["src_ip"],
+        "src_ip": src,
         "src_port": random.randint(1024, 65535),
-        "dest_ip": alert["dest_ip"],
-        "dest_port": alert["dest_port"],
-        "proto": "TCP",
+        "dest_ip": dest,
+        "dest_port": template["dest_port"],
+        "proto": template["proto"],
         "alert": {
             "action": "allowed",
             "gid": 1,
             "signature_id": random.randint(10000, 99999),
             "rev": 1,
-            "signature": alert["signature"],
-            "category": alert["category"],
-            "severity": alert["severity"]
+            "signature": template["signature"],
+            "category": template["category"],
+            "severity": template["severity"]
         },
-        "payload_printable": "GET /admin HTTP/1.1\r\nHost: 10.0.0.5\r\n\r\n"
+        # Adding a fake payload helps the dashboard look "real"
+        "payload_printable": f"Fake Payload: {template['signature']} from {src}",
+        "stream": 0,
+        "packet": "AAAA", # Fake base64 packet
+        "packet_info": {
+            "linktype": 1
+        }
     }
 
     try:
         # Send to Vector via HTTP
-        requests.post(VECTOR_URL, json=event)
-        print(f"Sent: {alert['signature']}")
+        # Verify your vector.toml source is type = "http_server"
+        response = requests.post(VECTOR_URL, json=event)
+        if response.status_code == 200:
+            print(f"[{time.strftime('%H:%M:%S')}] Sent: {template['signature']} from {src}")
+        else:
+            print(f"Vector Rejected: {response.status_code} - {response.text}")
+            
     except Exception as e:
         print(f"Error sending log: {e}")
 
-    # Random delay between events (0.5s to 3s)
-    time.sleep(random.uniform(0.5, 3.0))
+    # Random delay (fast enough to populate DB, slow enough to read logs)
+    time.sleep(random.uniform(0.1, 1.5))
