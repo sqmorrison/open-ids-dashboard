@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { motion, AnimatePresence } from "framer-motion"
 import Flag from "react-world-flags"
 import { Activity, Clock } from "lucide-react"
+import { formatToLocal } from "@/lib/formatDate";
 
 interface IncidentsTableProps {
   data: IDSIncident[];
@@ -95,7 +96,7 @@ export default function IncidentsTable({ data, isLoading }: IncidentsTableProps)
                   </TableCell>
 
                   <TableCell className="text-right text-xs text-muted-foreground font-mono">
-                    {new Date(incident.last_seen).toLocaleTimeString([], { hour12: false })}
+                    {formatToLocal(incident.first_seen)}
                   </TableCell>
                 </motion.tr>
               ))}

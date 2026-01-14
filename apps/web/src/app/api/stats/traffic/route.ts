@@ -1,35 +1,51 @@
 import { NextResponse } from 'next/server';
 import { getClickHouseClient } from '@/lib/clickhouse';
 
-/**
- * /api/stats/traffic - provides traffic (event) info to the chart feature on dashboard
- * * Purpose:
- * This chart displays the number of events relative to time running. This allows analysts to track peak hours of traffic, and make decisions accordingly.
- * * Architecture:
- * - Database: ClickHouse (Optimized for OLAP/Aggregation)
- * - Caching: none - will auto update with each poll on frontend
- * - Input: none
- * - Output: number of events aggregated by minute
- */
+export const dynamic = 'force-dynamic';
 
-const TRAFFIC_WINDOW_HOURS = 1;
-const FILL_STEP_SECONDS = 60;
-
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const range = searchParams.get('range') || '1H';
+
     const client = getClickHouseClient();
 
-    // Query: Count events per minute for the last hour.
-    // WITH FILL STEP ensures we get a row for every minute, even if count is 0.
+    // Default configuration (1 Hour)
+    let timeWindowHours = 1;
+    let groupByFunction = "toStartOfMinute(timestamp)";
+    let stepSeconds = 60; 
+
+    // Adjust query params based on selected range
+    switch (range) {
+        case '12H':
+            timeWindowHours = 12;
+            groupByFunction = "toStartOfHour(timestamp)";
+            stepSeconds = 3600; // Fill every 1 hour
+            break;
+        case '24H':
+            timeWindowHours = 24;
+            groupByFunction = "toStartOfHour(timestamp)";
+            stepSeconds = 3600; // Fill every 1 hour
+            break;
+        case '1H':
+        default:
+            timeWindowHours = 1;
+            groupByFunction = "toStartOfMinute(timestamp)";
+            stepSeconds = 60;   // Fill every 1 minute
+            break;
+    }
+
+    // FIX: Removed formatDateTime(). 
+    // We select the raw DateTime object so 'WITH FILL' can calculate the gaps.
     const query = `
       SELECT
-        toStartOfMinute(timestamp) as time,
+        ${groupByFunction} as time,
         count(*) as count
       FROM ids.events
-      WHERE timestamp >= now() - INTERVAL ${TRAFFIC_WINDOW_HOURS} HOUR
+      WHERE timestamp >= now() - INTERVAL ${timeWindowHours} HOUR
       GROUP BY time
       ORDER BY time ASC
-      WITH FILL STEP ${FILL_STEP_SECONDS}
+      WITH FILL STEP ${stepSeconds}
     `;
 
     const resultSet = await client.query({

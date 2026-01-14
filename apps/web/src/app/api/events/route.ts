@@ -1,67 +1,50 @@
 import { NextResponse } from 'next/server';
 import { getClickHouseClient } from '@/lib/clickhouse';
 
-/**
- * /api/events/route.ts - returns information on events based on clickup database based on suricata
- * * Purpose:
- * returns raw logs up to 100 events. Core display feature in dashboard.
- * * Architecture:
- * - Database: ClickHouse (Optimized for OLAP/Aggregation)
- * - Caching: none
- * - Input: can take in a string to match to event type or IPV4 address
- */
+export const dynamic = 'force-dynamic';
 
-const MAX_EVENTS_LIMIT = 100;
-const MAX_SEARCH_QUERY_LENGTH = 200;
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  let query = searchParams.get('search') || '';
-  
-  // Validate and sanitize search input
-  if (query.length > MAX_SEARCH_QUERY_LENGTH) {
-    return NextResponse.json(
-      { error: `Search query exceeds maximum length of ${MAX_SEARCH_QUERY_LENGTH} characters` },
-      { status: 400 }
-    );
-  }
-  query = query.trim();
-  
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get('search');
+
     const client = getClickHouseClient();
 
-    let sql = `
-      SELECT * FROM ids.events 
-      WHERE 1=1
-    `;
+    // Base query
+    let whereClause = "WHERE timestamp >= now() - INTERVAL 24 HOUR";
     
-    const queryParams: Record<string, string | number> = {};
-
-    if (query) {
-      sql += `
-        AND (
-          alert_signature ilike {query_wild:String} OR
-          concat(toString(src_ip), ':', toString(src_port)) ilike {query_wild:String} OR
-          concat(toString(dest_ip), ':', toString(dest_port)) ilike {query_wild:String}
-        )
-      `;
-
-      queryParams.query_wild = `%${query}%`;
+    // Simple search filter
+    if (search) {
+      whereClause += ` AND (src_ip ILIKE '%${search}%' OR alert_signature ILIKE '%${search}%')`;
     }
 
-    sql += ` ORDER BY timestamp DESC LIMIT ${MAX_EVENTS_LIMIT}`;
-
     const resultSet = await client.query({
-      query: sql,
+      query: `
+        SELECT
+          timestamp,
+          src_ip,
+          src_port,
+          dest_ip,
+          dest_port,
+          alert_signature,
+          alert_severity,
+          alert_category,
+          src_country,
+          src_country_code,
+          raw_json  -- <--- VITAL: Fetch the raw data
+        FROM ids.events
+        ${whereClause}
+        ORDER BY timestamp DESC
+        LIMIT 100
+      `,
       format: 'JSONEachRow',
-      query_params: queryParams,
     });
 
     const data = await resultSet.json();
     return NextResponse.json(data);
 
   } catch (error) {
-    console.error('ClickHouse Error:', error);
+    console.error('Events API Error:', error);
     return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 });
   }
 }

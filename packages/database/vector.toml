@@ -14,6 +14,11 @@ include = ["/var/logs/suricata/eve.json"]
 ignore_older_secs = 600
 read_from = "end"
 
+[sources.mock_http]
+type = "http_server"
+address = "0.0.0.0:8687"     # New port for data
+encoding = "json"            # Auto-parses the JSON body
+
 [transforms.suricata_parse]
 type = "remap"
 inputs = ["suricata_logs"]
@@ -46,9 +51,28 @@ source = '''
   del(.packet_info)
 '''
 
+[transforms.mock_normalize]
+type = "remap"
+inputs = ["mock_http"]
+source = '''
+  .raw_json = encode_json(.)
+
+  ts = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%fZ")
+  .timestamp = to_unix_timestamp(ts, unit: "milliseconds")
+
+  .proto = .proto || "TCP"
+  .alert_signature = .alert.signature
+  .alert_severity = .alert.severity
+  
+  .alert_category = .alert.category   # Map the category field
+  .alert_action = "allowed"
+
+  del(.alert)
+'''
+
 [transforms.enrich_geoip]
   type = "remap"
-  inputs = ["suricata_parse"]
+  inputs = ["suricata_parse", "mock_normalize"]
   source = '''
   # 1. Initialize defaults
   .src_country = "Unknown"
@@ -73,7 +97,7 @@ endpoint = "http://clickhouse:8123"
 database = "ids"
 table = "events"
 skip_unknown_fields = true
-compression = "gzip"
+compression = "none"
 
 [sinks.clickhouse.auth]
 strategy = "basic"
@@ -86,3 +110,6 @@ timestamp_format = "unix"
 [sinks.clickhouse.batch]
 max_bytes = 10485760
 timeout_secs = 1
+
+[sinks.clickhouse.request]
+retry_attempts = 3
