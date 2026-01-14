@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea"; // Add this
+import { formatToLocal } from "@/lib/formatDate";
 
 // Define a generic type for dynamic SQL results
 type QueryResultRow = Record<string, unknown>;
@@ -83,11 +84,26 @@ export function QueryBuilder() {
   };
 
   // Helper to safely render unknown cell values
-  const renderCell = (value: unknown): string => {
-    if (value === null || value === undefined) return "-";
-    if (typeof value === "object") return JSON.stringify(value);
-    return String(value);
-  };
+  const renderCell = (key: string, value: unknown): string => {
+      if (value === null || value === undefined) return "-";
+      
+      // Auto-format dates if the column name looks time-related
+      if (key.toLowerCase().includes("time") || key.toLowerCase().includes("seen")) {
+          // Import this from your lib, or define it inline if you prefer
+          // formatting logic:
+          const strVal = String(value);
+          const safeTs = strVal.endsWith("Z") || strVal.includes("+") ? strVal : `${strVal}Z`;
+          try {
+              return new Date(safeTs).toLocaleString('en-US', {
+                  timeZone: 'America/Chicago',
+                  month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+              });
+          } catch (e) { return strVal; }
+      }
+      
+      if (typeof value === "object") return JSON.stringify(value);
+      return String(value);
+    };
 
   return (
     <div className="space-y-6">
@@ -165,15 +181,15 @@ export function QueryBuilder() {
                 <TableBody>
                   {results.map((row, i) => (
                     <TableRow key={i}>
-                      {Object.values(row).map((val, j) => (
-                        <TableCell key={j} className="font-mono text-xs whitespace-nowrap">
-                          {renderCell(val)}
+                      {Object.keys(row).map((key) => (
+                        <TableCell key={key} className="font-mono text-xs whitespace-nowrap">
+                          {renderCell(key, row[key])} 
                         </TableCell>
                       ))}
                     </TableRow>
                   ))}
-                </TableBody>
-              </Table>
+              </TableBody>
+            </Table>
             </div>
         </div>
       )}
