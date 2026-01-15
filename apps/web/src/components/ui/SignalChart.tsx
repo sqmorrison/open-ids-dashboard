@@ -15,12 +15,22 @@ interface SignalChartProps {
 }
 
 export default function SignalChart({ data }: SignalChartProps) {
+  
+  const formatTime = (timeStr: string) => {
+    const date = new Date(timeStr.endsWith('Z') ? timeStr : timeStr + 'Z');
+    return date.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true
+      });
+    };
+  
   return (
     <Card className="w-full bg-zinc-950 border-zinc-800 text-zinc-100">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
             <ShieldAlert className="h-5 w-5 text-indigo-500" />
-            Signal vs. Noise (24h)
+            Signal vs. Noise (Max Last 4h)
         </CardTitle>
         <CardDescription className="text-zinc-500">
             Comparing critical threats (Red) against background chatter (Grey)
@@ -36,18 +46,22 @@ export default function SignalChart({ data }: SignalChartProps) {
               <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
               
               <XAxis 
-                dataKey="time_label" 
+                dataKey="raw_time" 
                 stroke="#71717a" 
                 fontSize={12} 
                 tickLine={false} 
                 axisLine={false}
+                minTickGap={30} 
+                tickFormatter={formatTime}
               />
               
               <YAxis 
                 stroke="#71717a" 
                 fontSize={12} 
                 tickLine={false} 
-                axisLine={false} 
+                axisLine={false}
+                allowDecimals={false} 
+                width={40}
               />
               
               <Tooltip
@@ -63,7 +77,7 @@ export default function SignalChart({ data }: SignalChartProps) {
                 dataKey="noise" 
                 name="Noise (Info/Low)" 
                 stackId="a" 
-                fill="#3f3f46" // zinc-700 (Subtle)
+                fill="#3f3f46" // zinc-700
                 radius={[0, 0, 4, 4]}
               />
 
@@ -72,7 +86,7 @@ export default function SignalChart({ data }: SignalChartProps) {
                 dataKey="signal" 
                 name="Signal (Critical/High)" 
                 stackId="a" 
-                fill="#ef4444" // red-500 (Alerting)
+                fill="#ef4444" // red-500
                 radius={[4, 4, 0, 0]} 
               />
             </BarChart>

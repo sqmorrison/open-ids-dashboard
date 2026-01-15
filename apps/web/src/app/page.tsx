@@ -81,7 +81,7 @@ export default function Dashboard() {
             
             if (eventsRes.ok) setLiveEvents(await eventsRes.json());
             
-            const [incidentsRes, trafficRes, statsRes] = await Promise.all([
+            const [incidentsRes, trafficRes, statsRes, signalRes] = await Promise.all([
                  fetchWithTimeout(`/api/incidents`, 5000),
                  fetchWithTimeout(`/api/stats/traffic?range=${timeRange}`, 5000),
                  fetchWithTimeout(`/api/stats/roi`, 5000),
@@ -92,6 +92,10 @@ export default function Dashboard() {
             if (incidentsRes.ok) setIncidents(await incidentsRes.json());
             if (trafficRes.ok) setTraffic(await trafficRes.json());
             if (statsRes.ok) setStats(await statsRes.json());
+            if (signalRes.ok) {
+                    const signalData = await signalRes.json();
+                    setSignalData(signalData);
+                }
   
         } catch (e) { console.error("Poll error", e); }
       }, [timeRange, searchQuery]);
