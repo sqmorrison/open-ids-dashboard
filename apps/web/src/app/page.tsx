@@ -196,6 +196,9 @@ export default function Dashboard() {
             data={triageEvents} 
             onRefresh={() => fetchTriageQueue(true)} 
             isRefreshing={isRefreshingTriage} 
+            onSignatureSearch={(query) => {
+                    setSearchQuery(query); 
+                }}
           />
         </TabsContent>
 

@@ -19,22 +19,35 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input" // Import Input
 import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Filter, ArrowUpDown } from "lucide-react"
+import { RefreshCw, Filter, ArrowUpDown, Search } from "lucide-react" // Import Search Icon
 import { formatToLocal } from "@/lib/formatDate"
 import { TriageActions } from "./TriageActions"
 
 interface TriageQueueProps {
-  data: IDSEvent[]; 
+  data: IDSEvent[];
   onRefresh: () => void;
   isRefreshing: boolean;
+  // NEW: Callback to trigger server-side search
+  onSignatureSearch: (query: string) => void;
 }
 
-export default function TriageQueue({ data, onRefresh, isRefreshing }: TriageQueueProps) {
-  const [statusFilter, setStatusFilter] = useState<string>("active") // 'all', 'active', 'resolved'
-  const [sortBy, setSortBy] = useState<string>("severity") // 'time', 'severity'
+export default function TriageQueue({ data, onRefresh, isRefreshing, onSignatureSearch }: TriageQueueProps) {
+  const [statusFilter, setStatusFilter] = useState<string>("active")
+  const [sortBy, setSortBy] = useState<string>("severity")
+  
+  // Local state for the input box
+  const [searchTerm, setSearchTerm] = useState("")
 
-  // client-side filtering and sorting
+  // Trigger server fetch on Enter key
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      onSignatureSearch(searchTerm)
+    }
+  }
+
+  // client-side filtering and sorting (Runs on the returned data)
   const processedData = useMemo(() => {
     let filtered = [...(data || [])];
 
@@ -48,12 +61,8 @@ export default function TriageQueue({ data, onRefresh, isRefreshing }: TriageQue
     // 2. SORT
     filtered.sort((a, b) => {
       if (sortBy === "severity") {
-        // Sort Critical (1) -> High (2) -> Low (3)
         return (a.alert_severity || 3) - (b.alert_severity || 3);
       }
-      
-      // Default: Sort by Time (Newest First)
-      // Fix: Convert string timestamps to numbers first
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
 
@@ -82,10 +91,22 @@ export default function TriageQueue({ data, onRefresh, isRefreshing }: TriageQue
         </div>
 
         {/* TOOLBAR */}
-        <div className="flex items-center gap-4 mt-4 p-2 bg-zinc-900/30 rounded-md border border-zinc-800/50">
+        <div className="flex flex-col md:flex-row items-center gap-4 mt-4 p-2 bg-zinc-900/30 rounded-md border border-zinc-800/50">
           
+          {/* NEW: Server-Side Signature Search */}
+          <div className="relative w-full md:w-auto md:flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
+            <Input 
+              placeholder="Filter by Signature (Press Enter)..."
+              className="pl-9 h-8 bg-zinc-950 border-zinc-800 text-xs w-full"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
+
           {/* Status Filter */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full md:w-auto">
             <Filter className="w-4 h-4 text-zinc-500" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[150px] h-8 bg-zinc-950 border-zinc-800 text-xs">
@@ -100,7 +121,7 @@ export default function TriageQueue({ data, onRefresh, isRefreshing }: TriageQue
           </div>
 
           {/* Sort Control */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full md:w-auto">
             <ArrowUpDown className="w-4 h-4 text-zinc-500" />
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-[150px] h-8 bg-zinc-950 border-zinc-800 text-xs">
@@ -133,7 +154,7 @@ export default function TriageQueue({ data, onRefresh, isRefreshing }: TriageQue
                    <SeverityBadge severity={event.alert_severity} />
                 </TableCell>
                 <TableCell>
-                  <TriageActions 
+                   <TriageActions 
                         uuid={event.event_uuid} 
                         initialStatus={event.current_status}
                         initialNotes={event.analyst_notes}
