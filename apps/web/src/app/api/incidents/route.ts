@@ -21,27 +21,29 @@ export async function GET() {
     const resultSet = await client.query({
       query: `
         SELECT
-            -- FIX 1: Convert IPv4 to String for safe grouping/JSON
-            toString(src_ip) as src_ip,
+            IPv4NumToString(e.src_ip) as src_ip,
+            e.alert_signature,
+            argMax(e.src_country, e.timestamp) as src_country,
+            argMax(e.src_country_code, e.timestamp) as src_country_code,
             
-            alert_signature,
+            -- The alias that caused the confusion:
+            min(e.alert_severity) as alert_severity,
             
-            -- FIX 2: Get the most recent country info (better than 'any')
-            argMax(src_country, timestamp) as src_country,
-            argMax(src_country_code, timestamp) as src_country_code,
-            
-            -- Stats
-            min(alert_severity) as alert_severity, -- Take the highest severity (lowest number) seen
             count() as count,
-            min(timestamp) as first_seen,
-            max(timestamp) as last_seen
+            min(e.timestamp) as first_seen,
+            max(e.timestamp) as last_seen
 
-        FROM ids.events
+        -- FIX 1: Give the table an alias 'e'
+        FROM ids.events e
         
-        -- FIX 3: Restrict to last 24 hours (Performance + Relevance)
-        WHERE timestamp >= now() - INTERVAL 24 HOUR
-        
-        GROUP BY src_ip, alert_signature
+        WHERE 
+          e.timestamp >= now() - INTERVAL 6 HOUR
+          
+          -- FIX 2: Explicitly reference 'e.alert_severity' (the column)
+          -- instead of just 'alert_severity' (which matches the alias above)
+          AND e.alert_severity <= 2
+
+        GROUP BY e.src_ip, e.alert_signature
         ORDER BY last_seen DESC
         LIMIT 50
       `,
@@ -54,7 +56,6 @@ export async function GET() {
       src_ip: item.src_ip,
       alert_signature: item.alert_signature,
       alert_severity: Number(item.alert_severity),
-      // ClickHouse 64-bit ints often come as strings in JSON
       count: Number(item.count), 
       first_seen: item.first_seen,
       last_seen: item.last_seen,
