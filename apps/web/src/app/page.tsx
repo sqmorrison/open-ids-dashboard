@@ -104,22 +104,27 @@ export default function Dashboard() {
         } catch (e) { console.error("Poll error", e); }
       }, [timeRange, searchQuery]);
   
-  const fetchTriageQueue = useCallback(async (showLoading = false) => {
-      if (showLoading) setIsRefreshingTriage(true);
-      try {
-          const queryParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
-          const res = await fetchWithTimeout(`/api/events?limit=200${queryParam}`, 8000);
-          
-          if (res.ok) {
-              const data = await res.json();
-              setTriageEvents(data);
-          }
-      } catch (e) {
-          console.error("Triage fetch error", e);
-      } finally {
-          if (showLoading) setIsRefreshingTriage(false);
-      }
-    }, [searchQuery]); // Dependency added
+  const fetchTriageQueue = useCallback(async (customDate?: string) => {
+        setIsRefreshingTriage(true);
+        try {
+            let url = `/api/events?limit=200`;
+            
+            // Append Search
+            if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
+            
+            // Append Date (Time Travel)
+            if (customDate) url += `&date=${customDate}`;
+  
+            const res = await fetchWithTimeout(url, 8000);
+            if (res.ok) {
+                setTriageEvents(await res.json());
+            }
+        } catch (e) {
+            console.error("Triage fetch error", e);
+        } finally {
+            setIsRefreshingTriage(false);
+        }
+    }, [searchQuery]); // Dependencies
 
   // --- EFFECTS ---
 
@@ -142,7 +147,7 @@ export default function Dashboard() {
   // Since Triage is "stable" (doesn't poll), we must manually trigger it when the user searches.
   useEffect(() => {
       if (searchQuery !== '') {
-         fetchTriageQueue(true);
+         fetchTriageQueue();
       }
   }, [searchQuery, fetchTriageQueue]);
 
@@ -205,11 +210,10 @@ export default function Dashboard() {
         <TabsContent value="triage">
           <TriageQueue 
             data={triageEvents} 
-            onRefresh={() => fetchTriageQueue(true)} 
-            isRefreshing={isRefreshingTriage} 
-            onSignatureSearch={(query) => {
-                    setSearchQuery(query); 
-                }}
+            onRefresh={() => fetchTriageQueue()} 
+            isRefreshing={isRefreshingTriage}
+            onSignatureSearch={(query) => setSearchQuery(query)}
+            onDateChange={(date) => fetchTriageQueue(date)} 
           />
         </TabsContent>
 

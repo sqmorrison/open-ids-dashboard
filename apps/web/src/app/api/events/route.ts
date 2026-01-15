@@ -8,11 +8,21 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search');
     const limit = searchParams.get('limit') || '100';
+    const date = searchParams.get('date');
+
     const client = getClickHouseClient();
 
     const queryParams: Record<string, string | number> = {
       limit: parseInt(limit, 10),
     };
+
+    let timeCondition = "e.timestamp >= now() - INTERVAL 24 HOUR";
+
+    if (date) {
+      // If date provided, filter for that specific calendar day
+      queryParams.target_date = date;
+      timeCondition = "toDate(e.timestamp) = toDate({target_date:String})";
+    }
 
     let searchCondition = "";
 
@@ -55,7 +65,7 @@ export async function GET(req: Request) {
            GROUP BY event_uuid
         ) t ON e.event_uuid = t.event_uuid
 
-        WHERE e.timestamp >= now() - INTERVAL 24 HOUR
+        WHERE ${timeCondition}
         ${searchCondition}
         
         ORDER BY e.timestamp DESC
