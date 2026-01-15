@@ -17,6 +17,7 @@ import GlobalThreatMap from '@/components/ui/GlobalThreatMap';
 import TriageQueue from '@/components/ui/TriageQueue';
 import { TimeRange } from "@/types/events";
 import SignalChart from '@/components/ui/SignalChart';
+import ProtocolChart from '@/components/ui/ProtocolChart';
 
 // Types
 import { IDSEvent, IDSIncident } from '@/types/events';
@@ -62,6 +63,7 @@ export default function Dashboard() {
   const [traffic, setTraffic] = useState<TrafficData[]>([]);
   const [stats, setStats] = useState<SeverityStats>({ critical: 0, high: 0, medium: 0 });
   const [signalData, setSignalData] = useState([]);
+  const [protocolData, setProtocolData] = useState([]);
   
   const [timeRange, setTimeRange] = useState<TimeRange>('1H');
   const [error, setError] = useState<string | null>(null);
@@ -81,11 +83,12 @@ export default function Dashboard() {
             
             if (eventsRes.ok) setLiveEvents(await eventsRes.json());
             
-            const [incidentsRes, trafficRes, statsRes, signalRes] = await Promise.all([
+            const [incidentsRes, trafficRes, statsRes, signalRes, protoRes] = await Promise.all([
                  fetchWithTimeout(`/api/incidents`, 5000),
                  fetchWithTimeout(`/api/stats/traffic?range=${timeRange}`, 5000),
                  fetchWithTimeout(`/api/stats/roi`, 5000),
-                 fetchWithTimeout(`/api/stats/signal-noise`, 5000)
+                 fetchWithTimeout(`/api/stats/signal-noise`, 5000),
+                 fetchWithTimeout(`/api/stats/protocols`, 5000)
             ]);
   
             // Handle the new Incidents response
@@ -96,6 +99,7 @@ export default function Dashboard() {
                     const signalData = await signalRes.json();
                     setSignalData(signalData);
                 }
+            if (protoRes.ok) setProtocolData(await protoRes.json());
   
         } catch (e) { console.error("Poll error", e); }
       }, [timeRange, searchQuery]);
@@ -222,8 +226,14 @@ export default function Dashboard() {
             data={traffic} 
             onTimeRangeChange={setTimeRange}
           />        
-          <hr />
-          <SignalChart data={signalData} />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+              <div className="md:col-span-2">
+                  <SignalChart data={signalData} />
+              </div>
+              <div className="md:col-span-1">
+                  <ProtocolChart data={protocolData} />
+              </div>
+          </div>
         </TabsContent>
         
         <TabsContent value="ROI">
