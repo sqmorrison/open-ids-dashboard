@@ -27,24 +27,15 @@ import { AiAnalysis } from "@/components/ui/AiAnalysis"
 import { Eye, ShieldAlert, FileJson, Copy, Check } from "lucide-react"
 import { formatToLocal } from "@/lib/formatDate"
 
-// 1. IMPORT YOUR NEW STATUS COMPONENT
 import { StatusSelect } from "./StatusSelect"
 
-// 2. UPDATE TYPE DEFINITION
-interface ExtendedIDSEvent extends IDSEvent {
-  event_uuid: string;     // Needed for the update API
-  current_status: string; // From the JOIN query
-  payload_printable?: string; 
-  raw_json?: string;
-}
-
 interface EventsTableProps {
-  data: ExtendedIDSEvent[];
+  data: IDSEvent[];
   isLoading: boolean;
 }
 
 export default function EventsTable({ data, isLoading }: EventsTableProps) {
-  const [selectedEvent, setSelectedEvent] = useState<ExtendedIDSEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<IDSEvent | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Helper to copy raw JSON

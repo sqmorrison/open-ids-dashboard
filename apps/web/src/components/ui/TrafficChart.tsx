@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button"; // Assuming standard shadcn button
+import { TimeRange } from "@/types/events"; // Import the type
 
 interface TrafficData {
   time: string;
@@ -12,7 +12,7 @@ interface TrafficData {
 
 interface TrafficChartProps {
   data: TrafficData[];
-  onTimeRangeChange?: (range: '1H' | '12H' | '24H') => void;
+  onTimeRangeChange: (range: TimeRange) => void; // <--- STRICT TYPE HERE
 }
 
 export default function TrafficChart({ data, onTimeRangeChange }: TrafficChartProps) {

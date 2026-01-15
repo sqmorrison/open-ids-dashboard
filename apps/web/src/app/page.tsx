@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-// components
+
+// Components
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, AlertCircle } from "lucide-react";
@@ -13,11 +14,13 @@ import RoiCard from '@/components/ui/RoiCard';
 import { ModeToggle } from '@/components/ui/ToggleModeButton';
 import { QueryBuilder } from '@/components/ui/QueryBuilder';
 import GlobalThreatMap from '@/components/ui/GlobalThreatMap';
+import TriageQueue from '@/components/ui/TriageQueue';
+import { TimeRange } from "@/types/events";
 
-// types used
+// Types
 import { IDSEvent, IDSIncident } from '@/types/events';
 
-// Types for API responses
+// API Response Types
 interface TrafficData {
   time: string;
   count: number;
@@ -33,7 +36,7 @@ interface SeverityStats {
 const POLLING_INTERVAL_MS = 5000;
 const FETCH_TIMEOUT_MS = 10000;
 
-// Helper function to create fetch with timeout
+// Helper: Fetch with Timeout
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -52,85 +55,107 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
 }
 
 export default function Dashboard() {
-  // State for data
-  const [events, setEvents] = useState<IDSEvent[]>([]);
+  // --- STATE ---
+  const [liveEvents, setLiveEvents] = useState<IDSEvent[]>([]);
+  const [triageEvents, setTriageEvents] = useState<IDSEvent[]>([]);
   const [incidents, setIncidents] = useState<IDSIncident[]>([]);
   const [traffic, setTraffic] = useState<TrafficData[]>([]);
-  const [stats, setStats] = useState<SeverityStats>({ critical: 0, high: 0, medium: 0 });  
+  const [stats, setStats] = useState<SeverityStats>({ critical: 0, high: 0, medium: 0 });
   
-  // FIXED: Added state for Time Range so the chart buttons work
-  const [timeRange, setTimeRange] = useState<'1H' | '12H' | '24H'>('1H');
-
-  // State for error handling
+  const [timeRange, setTimeRange] = useState<TimeRange>('1H');
   const [error, setError] = useState<string | null>(null);
 
-  // State for UI
+  // UI State
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState('');  
+  const [isLoading, setIsLoading] = useState(true); 
+  const [isRefreshingTriage, setIsRefreshingTriage] = useState(false);
 
-  // Unified Fetch Function
-  const fetchData = useCallback(async (isBackground = false) => {
-    if (!isBackground) {
-      setIsLoading(true);
-      setError(null);
-    }
+  // --- FETCHING LOGIC ---
 
-    try {
-      // Build URLs
-      const queryParam = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
-      const eventsUrl = `/api/events${queryParam}`;
-      const incidentsUrl = `/api/incidents`;
-      
-      // FIXED: Now uses the actual state variable
-      const chartsUrl = `/api/stats/traffic?range=${timeRange}`;
-      const roiUrl = `/api/stats/roi`;
+  // 1. Live Stream Fetcher (Includes Search Query now)
+  const fetchLiveStream = useCallback(async () => {
+      try {
+          // FIX: Add searchQuery to URL
+          const queryParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+          const eventsRes = await fetchWithTimeout(`/api/events?limit=50${queryParam}`, 5000);
+          
+          if (eventsRes.ok) setLiveEvents(await eventsRes.json());
+          
+          const [trafficRes, statsRes] = await Promise.all([
+               fetchWithTimeout(`/api/stats/traffic?range=${timeRange}`, 5000),
+               fetchWithTimeout(`/api/stats/roi`, 5000)
+          ]);
+          if (trafficRes.ok) setTraffic(await trafficRes.json());
+          if (statsRes.ok) setStats(await statsRes.json());
+      } catch (e) { console.error("Poll error", e); }
+    }, [timeRange, searchQuery]); // Dependency added
+  
+  // 2. Triage Queue Fetcher (Includes Search Query now)
+  const fetchTriageQueue = useCallback(async (showLoading = false) => {
+      if (showLoading) setIsRefreshingTriage(true);
+      try {
+          // FIX: Add searchQuery to URL
+          const queryParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+          // Using limit=200 for broader triage history
+          const res = await fetchWithTimeout(`/api/events?limit=200${queryParam}`, 8000);
+          
+          if (res.ok) {
+              const data = await res.json();
+              setTriageEvents(data);
+          }
+      } catch (e) {
+          console.error("Triage fetch error", e);
+      } finally {
+          if (showLoading) setIsRefreshingTriage(false);
+      }
+    }, [searchQuery]); // Dependency added
 
-      // Fetch all urls in parallel
-      const [eventsRes, incidentsRes, trafficRes, statsRes] = await Promise.all([
-        fetchWithTimeout(eventsUrl, FETCH_TIMEOUT_MS),
-        fetchWithTimeout(incidentsUrl, FETCH_TIMEOUT_MS),
-        fetchWithTimeout(chartsUrl, FETCH_TIMEOUT_MS),
-        fetchWithTimeout(roiUrl, FETCH_TIMEOUT_MS)
-      ]);
+  // --- EFFECTS ---
 
-      // Handle responses
-      if (eventsRes.ok) setEvents(await eventsRes.json());
-      if (incidentsRes.ok) setIncidents(await incidentsRes.json());
-      if (trafficRes.ok) setTraffic(await trafficRes.json());
-      if (statsRes.ok) setStats(await statsRes.json());
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
-      console.error("Dashboard Fetch Error:", err);
-      if (!isBackground) setError(errorMessage);
-    } finally {
-      if (!isBackground) setIsLoading(false);
-    }
-  }, [searchQuery, timeRange]);
-
-  // Initial Load & Polling
+  // 1. Initial Load
   useEffect(() => {
-    fetchData(false);
-    const interval = setInterval(() => fetchData(true), POLLING_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+      const init = async () => {
+          setIsLoading(true);
+          await Promise.all([fetchLiveStream(), fetchTriageQueue()]);
+          setIsLoading(false);
+      };
+      init();
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  
+  // 2. Live Polling (Restarts when search/time changes)
+  useEffect(() => {
+      const interval = setInterval(() => {
+          fetchLiveStream();
+      }, POLLING_INTERVAL_MS);
+      return () => clearInterval(interval);
+    }, [fetchLiveStream]);
+
+  // 3. NEW: Re-fetch Triage when Search changes
+  // Since Triage is "stable" (doesn't poll), we must manually trigger it when the user searches.
+  useEffect(() => {
+      if (searchQuery !== '') {
+         fetchTriageQueue(true);
+      }
+  }, [searchQuery, fetchTriageQueue]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSearchQuery(searchInput);
+    // The useEffect above ^ will detect this change and trigger the fetch
   };
 
+  // --- RENDER ---
   return (
     <div className="container mx-auto py-10 space-y-8">
-      {/* Header Section */}
+      
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Aerial Eye</h1>
           <p className="text-muted-foreground">Real-time Network Threat Monitoring & Intelligence</p>
         </div>
 
-        {/* Global Controls */}
         <div className='flex items-center gap-4'>            
             <ModeToggle />
             
@@ -150,38 +175,46 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Error Banner */}
+      {/* ERROR BANNER */}
       {error && (
           <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
             <AlertCircle className="h-4 w-4" />
             <span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={() => fetchData(false)} className="ml-auto">Retry</Button>
           </div>
       )}
 
-      {/* Main Tabs */}
-      <Tabs defaultValue="incidents" className="space-y-4">
+      {/* MAIN CONTENT TABS */}
+      <Tabs defaultValue="triage" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="incidents">Incidents (Aggregated)</TabsTrigger>
           <TabsTrigger value="live">Live Feed (Raw)</TabsTrigger>
-          <TabsTrigger value="chart">Traffic Chart</TabsTrigger>
-          <TabsTrigger value="ROI">Money Saved</TabsTrigger>
+          <TabsTrigger value="triage">Status View</TabsTrigger>
+          <TabsTrigger value="incidents">Incidents (Aggregated)</TabsTrigger>
           <TabsTrigger value="AI">Ask The Database</TabsTrigger>
+          <TabsTrigger value="chart">Traffic Chart</TabsTrigger>
           <TabsTrigger value="map">Heat Map</TabsTrigger>
+          <TabsTrigger value="ROI">Money Saved</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="triage">
+          <TriageQueue 
+            data={triageEvents} 
+            onRefresh={() => fetchTriageQueue(true)} 
+            isRefreshing={isRefreshingTriage} 
+          />
+        </TabsContent>
+
+        <TabsContent value="live">
+          <EventsTable data={liveEvents} isLoading={isLoading} />
+        </TabsContent>
+        
         <TabsContent value="incidents">
           <IncidentsTable data={incidents} isLoading={isLoading} />
         </TabsContent>
 
-        <TabsContent value="live">
-          <EventsTable data={events} isLoading={isLoading} />
-        </TabsContent>
-        
         <TabsContent value="chart">
           <TrafficChart 
             data={traffic} 
-            onTimeRangeChange={(range) => setTimeRange(range)} 
+            onTimeRangeChange={setTimeRange}
           />        
         </TabsContent>
         

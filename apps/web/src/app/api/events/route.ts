@@ -1,4 +1,3 @@
-// src/app/api/events/route.ts
 import { NextResponse } from 'next/server';
 import { getClickHouseClient } from '@/lib/clickhouse';
 
@@ -8,15 +7,18 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search');
-
+    const limit = searchParams.get('limit') || '100';
     const client = getClickHouseClient();
 
-    const queryParams: Record<string, string> = {};
+    const queryParams: Record<string, string | number> = {
+      limit: parseInt(limit, 10),
+    };
+
     let searchCondition = "";
 
     if (search) {
       queryParams.search_term = `%${search}%`;
-      searchCondition = "AND (e.src_ip ILIKE {search_term:String} OR e.alert_signature ILIKE {search_term:String})";
+      searchCondition = "AND (toString(e.src_ip) ILIKE {search_term:String} OR e.alert_signature ILIKE {search_term:String})";
     }
 
     const resultSet = await client.query({
@@ -34,15 +36,21 @@ export async function GET(req: Request) {
           e.src_country,
           e.src_country_code,
           e.raw_json,
-          -- JOIN RESULT: If no status exists, default to 'New'
-          ifNull(t.status, 'New') as current_status
+          
+          -- Status with default
+          ifNull(t.status, 'New') as current_status,
+          
+          -- Notes with default (Safe against nulls)
+          ifNull(t.analyst_notes, '') as analyst_notes
+
         FROM ids.events e
         
-        -- Join with the latest status for each event
+        -- Join with the latest triage data
         LEFT JOIN (
            SELECT 
              event_uuid, 
-             argMax(status, updated_at) as status
+             argMax(status, updated_at) as status,
+             argMax(analyst_notes, updated_at) as analyst_notes
            FROM ids.alert_triage
            GROUP BY event_uuid
         ) t ON e.event_uuid = t.event_uuid
@@ -51,7 +59,7 @@ export async function GET(req: Request) {
         ${searchCondition}
         
         ORDER BY e.timestamp DESC
-        LIMIT 100
+        LIMIT {limit:UInt32}
       `,
       query_params: queryParams,
       format: 'JSONEachRow',
