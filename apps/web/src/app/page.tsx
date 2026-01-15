@@ -16,6 +16,7 @@ import { QueryBuilder } from '@/components/ui/QueryBuilder';
 import GlobalThreatMap from '@/components/ui/GlobalThreatMap';
 import TriageQueue from '@/components/ui/TriageQueue';
 import { TimeRange } from "@/types/events";
+import SignalChart from '@/components/ui/SignalChart';
 
 // Types
 import { IDSEvent, IDSIncident } from '@/types/events';
@@ -60,6 +61,7 @@ export default function Dashboard() {
   const [incidents, setIncidents] = useState<IDSIncident[]>([]);
   const [traffic, setTraffic] = useState<TrafficData[]>([]);
   const [stats, setStats] = useState<SeverityStats>({ critical: 0, high: 0, medium: 0 });
+  const [signalData, setSignalData] = useState([]);
   
   const [timeRange, setTimeRange] = useState<TimeRange>('1H');
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +84,8 @@ export default function Dashboard() {
             const [incidentsRes, trafficRes, statsRes] = await Promise.all([
                  fetchWithTimeout(`/api/incidents`, 5000),
                  fetchWithTimeout(`/api/stats/traffic?range=${timeRange}`, 5000),
-                 fetchWithTimeout(`/api/stats/roi`, 5000)
+                 fetchWithTimeout(`/api/stats/roi`, 5000),
+                 fetchWithTimeout(`/api/stats/signal-noise`, 5000)
             ]);
   
             // Handle the new Incidents response
@@ -215,6 +218,8 @@ export default function Dashboard() {
             data={traffic} 
             onTimeRangeChange={setTimeRange}
           />        
+          <hr />
+          <SignalChart data={signalData} />
         </TabsContent>
         
         <TabsContent value="ROI">
