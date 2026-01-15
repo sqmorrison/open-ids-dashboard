@@ -9,7 +9,7 @@ interface IncidentRow {
   src_country_code: string | null;
   alert_signature: string;
   alert_severity: number;
-  count: string | number; // Handle both possibilities safely
+  count: string | number;
   first_seen: string;
   last_seen: string;
 }
@@ -21,15 +21,26 @@ export async function GET() {
     const resultSet = await client.query({
       query: `
         SELECT
-            src_ip,
-            any(src_country) as src_country,
-            any(src_country_code) as src_country_code,
+            -- FIX 1: Convert IPv4 to String for safe grouping/JSON
+            toString(src_ip) as src_ip,
+            
             alert_signature,
-            any(alert_severity) as alert_severity,
+            
+            -- FIX 2: Get the most recent country info (better than 'any')
+            argMax(src_country, timestamp) as src_country,
+            argMax(src_country_code, timestamp) as src_country_code,
+            
+            -- Stats
+            min(alert_severity) as alert_severity, -- Take the highest severity (lowest number) seen
             count() as count,
             min(timestamp) as first_seen,
             max(timestamp) as last_seen
+
         FROM ids.events
+        
+        -- FIX 3: Restrict to last 24 hours (Performance + Relevance)
+        WHERE timestamp >= now() - INTERVAL 24 HOUR
+        
         GROUP BY src_ip, alert_signature
         ORDER BY last_seen DESC
         LIMIT 50
@@ -37,18 +48,16 @@ export async function GET() {
       format: 'JSONEachRow',
     });
 
-    // FIX: Force cast the result to ensure TS knows it is an Array of Objects
     const rawData = (await resultSet.json()) as unknown as IncidentRow[];
 
     const processedData = rawData.map((item) => ({
       src_ip: item.src_ip,
       alert_signature: item.alert_signature,
-      alert_severity: Number(item.alert_severity), // Ensure number
-      // Handle the count safely
-      count: typeof item.count === 'string' ? parseInt(item.count, 10) : item.count,
+      alert_severity: Number(item.alert_severity),
+      // ClickHouse 64-bit ints often come as strings in JSON
+      count: Number(item.count), 
       first_seen: item.first_seen,
       last_seen: item.last_seen,
-      // Handle defaults
       src_country: item.src_country || 'Unknown',
       src_country_code: item.src_country_code || 'XX',
     }));

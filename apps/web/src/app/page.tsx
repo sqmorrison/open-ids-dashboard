@@ -34,7 +34,6 @@ interface SeverityStats {
 
 // Constants
 const POLLING_INTERVAL_MS = 5000;
-const FETCH_TIMEOUT_MS = 10000;
 
 // Helper: Fetch with Timeout
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
@@ -73,31 +72,31 @@ export default function Dashboard() {
 
   // --- FETCHING LOGIC ---
 
-  // 1. Live Stream Fetcher (Includes Search Query now)
   const fetchLiveStream = useCallback(async () => {
-      try {
-          // FIX: Add searchQuery to URL
-          const queryParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
-          const eventsRes = await fetchWithTimeout(`/api/events?limit=50${queryParam}`, 5000);
-          
-          if (eventsRes.ok) setLiveEvents(await eventsRes.json());
-          
-          const [trafficRes, statsRes] = await Promise.all([
-               fetchWithTimeout(`/api/stats/traffic?range=${timeRange}`, 5000),
-               fetchWithTimeout(`/api/stats/roi`, 5000)
-          ]);
-          if (trafficRes.ok) setTraffic(await trafficRes.json());
-          if (statsRes.ok) setStats(await statsRes.json());
-      } catch (e) { console.error("Poll error", e); }
-    }, [timeRange, searchQuery]); // Dependency added
+        try {
+            const queryParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+            const eventsRes = await fetchWithTimeout(`/api/events?limit=50${queryParam}`, 5000);
+            
+            if (eventsRes.ok) setLiveEvents(await eventsRes.json());
+            
+            const [incidentsRes, trafficRes, statsRes] = await Promise.all([
+                 fetchWithTimeout(`/api/incidents`, 5000),
+                 fetchWithTimeout(`/api/stats/traffic?range=${timeRange}`, 5000),
+                 fetchWithTimeout(`/api/stats/roi`, 5000)
+            ]);
   
-  // 2. Triage Queue Fetcher (Includes Search Query now)
+            // Handle the new Incidents response
+            if (incidentsRes.ok) setIncidents(await incidentsRes.json());
+            if (trafficRes.ok) setTraffic(await trafficRes.json());
+            if (statsRes.ok) setStats(await statsRes.json());
+  
+        } catch (e) { console.error("Poll error", e); }
+      }, [timeRange, searchQuery]);
+  
   const fetchTriageQueue = useCallback(async (showLoading = false) => {
       if (showLoading) setIsRefreshingTriage(true);
       try {
-          // FIX: Add searchQuery to URL
           const queryParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
-          // Using limit=200 for broader triage history
           const res = await fetchWithTimeout(`/api/events?limit=200${queryParam}`, 8000);
           
           if (res.ok) {
@@ -113,7 +112,6 @@ export default function Dashboard() {
 
   // --- EFFECTS ---
 
-  // 1. Initial Load
   useEffect(() => {
       const init = async () => {
           setIsLoading(true);
@@ -123,7 +121,6 @@ export default function Dashboard() {
       init();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
   
-  // 2. Live Polling (Restarts when search/time changes)
   useEffect(() => {
       const interval = setInterval(() => {
           fetchLiveStream();
@@ -131,7 +128,6 @@ export default function Dashboard() {
       return () => clearInterval(interval);
     }, [fetchLiveStream]);
 
-  // 3. NEW: Re-fetch Triage when Search changes
   // Since Triage is "stable" (doesn't poll), we must manually trigger it when the user searches.
   useEffect(() => {
       if (searchQuery !== '') {
