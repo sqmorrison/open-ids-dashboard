@@ -4,26 +4,15 @@ import { useEffect, useState } from "react";
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from "react-simple-maps";
 import { scaleLinear } from "d3-scale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Globe } from "lucide-react";
 
+// This is the most reliable TopoJSON source for ISO_A2 codes
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-// 1. Define the Database Data Shape
 interface CountryData {
   src_country_code: string;
   src_country: string;
   count: number;
-}
-
-// 2. Define the Map Feature Shape (The "geo" object)
-interface GeoProperties {
-  ISO_A2?: string; // The 2-letter code (e.g., "US")
-  name?: string;   // The Country Name (e.g., "United States")
-}
-
-interface GeoFeature {
-  rsmKey: string;
-  properties: GeoProperties;
 }
 
 export default function GlobalThreatMap() {
@@ -46,91 +35,96 @@ export default function GlobalThreatMap() {
     fetchData();
   }, []);
 
-  const maxCount = Math.max(...data.map(d => d.count), 10);
+  const maxCount = Math.max(...data.map(d => d.count), 1);
   
-  // Create color scale
   const colorScale = scaleLinear<string>()
     .domain([0, maxCount])
-    .range(["#27272a", "#ef4444"]); 
-
-  // 3. Strictly Typed Helper Functions
-  const getCountryColor = (geo: GeoFeature): string => {
-    const countryCode = geo.properties.ISO_A2; 
-    if (!countryCode) return "#27272a";
-
-    const countryData = data.find(d => d.src_country_code === countryCode);
-    return countryData ? colorScale(countryData.count) : "#27272a";
-  };
-  
-  const getTooltip = (geo: GeoFeature): string => {
-    const countryCode = geo.properties.ISO_A2; 
-    const countryName = geo.properties.name || "Unknown Region";
-
-    if (!countryCode) return countryName;
-
-    const countryData = data.find(d => d.src_country_code === countryCode);
-    
-    if (!countryData) return `${countryName}: No Threats`;
-    return `${countryData.src_country}: ${countryData.count} Attacks`;
-  };
+    .range(["#18181b", "#ef4444"]); 
 
   return (
-    <Card className="col-span-4 bg-zinc-950 border-zinc-800 h-[500px] flex flex-col">
-      <CardHeader>
-        <CardTitle className="flex justify-between items-center text-zinc-100">
-          <span>Global Threat Origins (24H)</span>
+    <Card className="col-span-4 bg-zinc-950 border-zinc-800 h-[500px] flex flex-col overflow-hidden">
+      <CardHeader className="border-b border-zinc-800/50 bg-zinc-900/20 py-3">
+        <CardTitle className="flex justify-between items-center text-zinc-100 text-sm font-semibold uppercase tracking-wider">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-indigo-500" />
+            Global Threat Origins
+          </div>
           {loading && <Loader2 className="animate-spin w-4 h-4 text-zinc-500" />}
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 w-full h-full relative overflow-hidden bg-zinc-900/20 rounded-b-lg">
-        <ComposableMap projection="geoMercator" projectionConfig={{ scale: 100 }}>
-            <ZoomableGroup center={[0, 20]} zoom={1}>
+      
+      <CardContent className="flex-1 w-full relative p-0 bg-black">
+        <ComposableMap 
+          // geoEqualEarth looks more professional and centers the map better than Mercator
+          projection="geoEqualEarth"
+          projectionConfig={{ scale: 140 }}
+          style={{ width: "100%", height: "100%" }}
+        >
+          <ZoomableGroup center={[0, 0]} zoom={1} maxZoom={5}>
             <Geographies geography={GEO_URL}>
-                {({ geographies }) =>
+              {({ geographies }) =>
                 geographies.map((geo) => {
-                    // Force cast the map object to our defined interface
-                    const feature = geo as unknown as GeoFeature;
-                    const color = getCountryColor(feature);
-                    
-                    return (
+                  // Standard world-atlas uses numeric IDs. 
+                  // We need to map those to the ISO_A2 codes from your database.
+                  const countryName = geo.properties.name;
+                  
+                  // For the heatmap to work with world-atlas, we match by name 
+                  // OR you can use an ISO mapping table. Since your mock uses 'China',
+                  // we'll match on the country name.
+                  const countryData = data.find(d => 
+                    d.src_country === countryName || 
+                    d.src_country_code === geo.id // Some maps use numeric IDs as strings
+                  );
+
+                  const fill = countryData ? colorScale(countryData.count) : "#27272a";
+
+                  return (
                     <Geography
-                        key={feature.rsmKey}
-                        geography={geo}
-                        fill={color}
-                        stroke="#09090b"
-                        strokeWidth={0.5}
-                        style={{
-                            default: { outline: "none" },
-                            hover: { fill: "#f87171", outline: "none", cursor: "pointer" },
-                            pressed: { outline: "none" },
-                        }}
-                        onMouseEnter={() => setHoveredCountry(getTooltip(feature))}
-                        onMouseLeave={() => setHoveredCountry(null)}
+                      key={geo.rsmKey}
+                      geography={geo}
+                      fill={fill}
+                      stroke="#09090b"
+                      strokeWidth={0.5}
+                      style={{
+                        default: { outline: "none", transition: "fill 0.3s" },
+                        hover: { fill: "#f87171", cursor: "pointer", outline: "none" },
+                        pressed: { outline: "none" },
+                      }}
+                      onMouseEnter={() => {
+                        const label = countryData 
+                          ? `${countryData.src_country}: ${countryData.count} Attacks`
+                          : `${countryName}: No Activity`;
+                        setHoveredCountry(label);
+                      }}
+                      onMouseLeave={() => setHoveredCountry(null)}
                     />
-                    );
+                  );
                 })
-                }
+              }
             </Geographies>
-            </ZoomableGroup>
+          </ZoomableGroup>
         </ComposableMap>
-        
+
+        {/* HUD Style Overlay Tooltip */}
         {hoveredCountry && (
-                <div className="absolute top-4 right-4 bg-zinc-950/90 border border-zinc-800 p-2 rounded shadow-xl pointer-events-none">
-                    <span className="text-zinc-100 text-xs font-mono font-bold tracking-wider">
-                        {hoveredCountry}
-                    </span>
-                </div>
-            )}
-        
-        <div className="absolute bottom-4 left-4 bg-black/80 p-3 rounded text-xs text-zinc-400 border border-zinc-800">
-            <div className="flex items-center gap-2 mb-1">
-                <div className="w-3 h-3 bg-red-500 rounded-sm"></div>
-                <span>High Activity</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-zinc-800 rounded-sm"></div>
-                <span>No Activity</span>
-            </div>
+          <div className="absolute top-4 right-4 bg-zinc-900/90 border border-zinc-700 p-3 rounded shadow-2xl backdrop-blur-md pointer-events-none z-50">
+            <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Intelligence Feed</div>
+            <span className="text-zinc-100 text-xs font-mono font-bold">
+              {hoveredCountry}
+            </span>
+          </div>
+        )}
+
+        {/* Legend */}
+        <div className="absolute bottom-6 left-6 bg-zinc-900/60 p-3 rounded border border-zinc-800 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+            <span className="text-[10px] text-zinc-300 uppercase font-bold tracking-widest">Infiltration Source</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 bg-zinc-800 rounded-full" />
+            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Baseline</span>
+          </div>
         </div>
       </CardContent>
     </Card>
