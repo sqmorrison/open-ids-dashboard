@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Open IDS",
+  title: "Aerial Eye",
   description: "Open Source IDS Dashboard",
 };
 
