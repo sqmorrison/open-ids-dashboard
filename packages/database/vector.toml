@@ -1,115 +1,136 @@
 # packages/database/vector.toml
-# 
+
 [enrichment_tables.geoip_table]
   type = "geoip"
   path = "/etc/vector/GeoLite2-City.mmdb"
 
 [api]
-enabled = true
-address = "0.0.0.0:8686"
+  enabled = true
+  address = "0.0.0.0:8686"
+
+# SOURCES
 
 [sources.suricata_logs]
-type = "file"
-include = ["/var/logs/suricata/eve.json"]
-ignore_older_secs = 600
-read_from = "end"
+  type = "file"
+  include = ["/var/logs/suricata/eve.json"]
+  ignore_older_secs = 600
+  read_from = "end"
 
 [sources.mock_http]
-type = "http_server"
-address = "0.0.0.0:8687"     # New port for data
-encoding = "json"            # Auto-parses the JSON body
+  type = "http_server"
+  address = "0.0.0.0:8687"
+  encoding = "json"
+
+# TRANSFORMS
 
 [transforms.suricata_parse]
-type = "remap"
-inputs = ["suricata_logs"]
-source = '''
-  . = parse_json!(.message)
-
-  if .event_type != "alert" {
-    abort
-  }
-
-  ts = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%f%z")
-  .timestamp = to_unix_timestamp(ts, unit: "milliseconds")
-
-  .src_ip = .src_ip
-  .dest_ip = .dest_ip
-  .src_port = .src_port
-  .dest_port = .dest_port
-  
-  .proto = to_string(.proto) ?? "UNKNOWN"
-
-  # Alert details
-  .alert_signature = to_string(.alert.signature) ?? "Unknown"
-  .alert_severity = to_int(.alert.severity) ?? 3
-  .alert_action = to_string(.alert.action) ?? "allowed"
-
-  del(.alert)
-  del(.flow_id)
-  del(.payload)
-  del(.packet)
-  del(.packet_info)
-'''
-
-[transforms.mock_normalize]
-type = "remap"
-inputs = ["mock_http"]
-source = '''
-  .raw_json = encode_json(.)
-
-  ts = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%fZ")
-  .timestamp = to_unix_timestamp(ts, unit: "milliseconds")
-
-  .proto = .proto || "TCP"
-  .alert_signature = .alert.signature
-  .alert_severity = .alert.severity
-  
-  .alert_category = .alert.category   # Map the category field
-  .alert_action = "allowed"
-
-  del(.alert)
-'''
-
-[transforms.enrich_geoip]
   type = "remap"
-  inputs = ["suricata_parse", "mock_normalize"]
+  inputs = ["suricata_logs"]
   source = '''
-  # 1. Initialize defaults
-  .src_country = "Unknown"
-  .src_country_code = "XX"
+    # Parse the log
+    . = parse_json!(.message)
 
-  # 2. Query the enrichment table
-  # We use the table name we defined above: "geoip_table"
-  geo_data, err = get_enrichment_table_record("geoip_table", { "ip": .src_ip })
+    # Filter for alerts only
+    if .event_type != "alert" {
+      abort
+    }
 
-  # 3. If found, extract the data
-  if err == null && geo_data != null {
-    .src_country = geo_data.country.names.en || "Unknown"
-    .src_country_code = geo_data.country.iso_code || "XX"
-  }
+    # Capture Raw JSON (Before we delete fields)
+    # We re-encode the current state to save as a string blob for inspection
+    .raw_json = encode_json(.)
+
+    # Standardize Timestamp
+    ts = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%f%z")
+    .timestamp = to_unix_timestamp(ts, unit: "milliseconds")
+
+    # Extract Network Fields
+    .src_ip = .src_ip
+    .dest_ip = .dest_ip
+    .src_port = .src_port
+    .dest_port = .dest_port
+    .proto = to_string(.proto) ?? "UNKNOWN"
+
+    # Extract Alert Details
+    .alert_signature = to_string(.alert.signature) ?? "Unknown"
+    .alert_severity = to_int(.alert.severity) ?? 3
+    .alert_action = to_string(.alert.action) ?? "allowed"
+    .alert_category = to_string(.alert.category) ?? "Unknown"  # Added to match schema
+
+    # Cleanup (Remove nested objects to flatten the structure)
+    del(.alert)
+    del(.flow_id)
+    del(.payload)
+    del(.packet)
+    del(.packet_info)
+    del(.app_proto)
   '''
 
-# SINK: Send to ClickHouse
+[transforms.mock_normalize]
+  type = "remap"
+  inputs = ["mock_http"]
+  source = '''
+    # Capture Raw JSON
+    .raw_json = encode_json(.)
+
+    # Standardize Timestamp
+    ts = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%fZ")
+    .timestamp = to_unix_timestamp(ts, unit: "milliseconds")
+
+    # Defaults
+    .proto = .proto || "TCP"
+    .alert_signature = .alert.signature
+    .alert_severity = .alert.severity
+    .alert_category = .alert.category
+    .alert_action = "allowed"
+    
+    .src_country = .src_country || "Unknown"
+    .src_country_code = .src_country_code || "XX"
+
+    # Cleanup
+    del(.alert)
+  '''
+
+[transforms.enrich_geoip]
+type = "remap"
+inputs = ["suricata_parse", "mock_normalize"]
+source = '''
+    # Only initialize if the fields don't exist yet (prevents overwriting mock data)
+    .src_country = .src_country || "Unknown"
+    .src_country_code = .src_country_code || "XX"
+
+    # Only attempt lookup if it's still "Unknown"
+    if .src_country == "Unknown" {
+        geo_data, err = get_enrichment_table_record("geoip_table", { "ip": .src_ip })
+
+        if err == null && geo_data != null {
+        .src_country = geo_data.country.names.en || "Unknown"
+        .src_country_code = geo_data.country.iso_code || "XX"
+        }
+    }
+'''
+
+# SINKS
+
 [sinks.clickhouse]
-type = "clickhouse"
-inputs = ["enrich_geoip"]
-endpoint = "http://clickhouse:8123" 
-database = "ids"
-table = "events"
-skip_unknown_fields = true
-compression = "none"
+  type = "clickhouse"
+  inputs = ["enrich_geoip"]  
+  endpoint = "http://clickhouse:8123"
+  database = "ids"
+  table = "events"
+  skip_unknown_fields = true
+  compression = "none"
 
-[sinks.clickhouse.auth]
-strategy = "basic"
-user = "default"
-password = "admin"  
+  [sinks.clickhouse.auth]
+    strategy = "basic"
+    user = "default"
+    password = "admin"
 
-[sinks.clickhouse.encoding]
-timestamp_format = "unix"
+  [sinks.clickhouse.encoding]
+    timestamp_format = "unix"
 
-[sinks.clickhouse.batch]
-max_bytes = 10485760
-timeout_secs = 1
+  [sinks.clickhouse.batch]
+    max_bytes = 10485760
+    timeout_secs = 1
 
-[sinks.clickhouse.request]
-retry_attempts = 3
+  [sinks.clickhouse.request]
+    retry_attempts = 3

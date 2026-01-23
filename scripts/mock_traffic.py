@@ -2,21 +2,17 @@ import time
 import json
 import random
 import requests
-from datetime import datetime, timezone
+from datetime import datetime
 
 # Configuration
-# Ensure this matches the port defined in your vector.toml [sources.http_logs]
 VECTOR_URL = "http://vector:8687"
 
-# Helper to generate valid random IPs
 def random_ip(prefix=None):
     if prefix:
-        # Count how many octets are already in the prefix
         octet_count = len(prefix.split('.'))
-        # Generate remaining octets to complete 4 total
         remaining = 4 - octet_count
         if remaining <= 0:
-            return prefix  # Already complete
+            return prefix
         parts = [prefix]
         for _ in range(remaining):
             parts.append(str(random.randint(1, 254)))
@@ -24,67 +20,68 @@ def random_ip(prefix=None):
     return f"{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}"
 
 alerts_templates = [
-    # 1. The "China" Scenario (For your AI Demo)
     {
         "category": "APT Activity (China)",
         "signature": "ET TROJAN APT.CN.Emissary Panda Beacon",
         "severity": 1,
-        "src_ip_prefix": "59.110", # Alibaba Cloud / China Range simulation
+        "src_ip_prefix": "59.110",
         "dest_port": 443,
-        "proto": "TCP"
+        "proto": "TCP",
+        "country": "China",
+        "country_code": "CN" # Displays on Heat Map
     },
-    # 2. Standard Malware
     {
         "category": "Potentially Bad Traffic",
         "signature": "ET MALWARE Win32/Generic Beacon",
         "severity": 1,
         "src_ip_prefix": "185.100",
         "dest_port": 8080,
-        "proto": "TCP"
+        "proto": "TCP",
+        "country": "Netherlands",
+        "country_code": "NL"
     },
-    # 3. Web Attacks
     {
         "category": "Web Application Attack",
         "signature": "ET WEB_SERVER SQL Injection Attempt",
         "severity": 2,
         "src_ip_prefix": "45.33",
         "dest_port": 443,
-        "proto": "TCP"
+        "proto": "TCP",
+        "country": "United States",
+        "country_code": "US"
     },
-    # 4. Noise (Internal Traffic)
     {
-        "category": "Misc Activity",
-        "signature": "SURICATA ICMP Ping",
-        "severity": 3,
-        "src_ip_prefix": "192.168.1",
-        "dest_port": 0,
-        "proto": "ICMP"
-    },
-    # 5. SSH Brute Force
-    {
-        "category": "Attempted Administrator Privilege Gain",
+        "category": "SSH Brute Force",
         "signature": "ET SCAN LibSSH Based Brute Force",
         "severity": 2,
         "src_ip_prefix": "103.20",
         "dest_port": 22,
-        "proto": "TCP"
+        "proto": "TCP",
+        "country": "Vietnam",
+        "country_code": "VN"
+    },
+    {
+        "category": "System Compromise",
+        "signature": "ET EXPLOIT Possible SolarWinds Backdoor",
+        "severity": 1,
+        "src_ip_prefix": "95.161",
+        "dest_port": 443,
+        "proto": "TCP",
+        "country": "Russia",
+        "country_code": "RU"
     }
 ]
 
-print(f"Starting Mock Traffic Generator targeting {VECTOR_URL}...")
+print(f"Starting Mock Traffic Generator with GeoIP data targeting {VECTOR_URL}...")
 
 while True:
-    # Pick a random alert template
     template = random.choice(alerts_templates)
-    
-    # Generate dynamic IPs so the dashboard looks alive
     src = random_ip(template.get("src_ip_prefix"))
     dest = "10.0.0.5" 
     
-    # FIX: Manually format to "YYYY-MM-DDTHH:MM:SS.ssssssZ"
-    # This matches Vector's "%Y-%m-%dT%H:%M:%S.%fZ" exactly
     current_time = datetime.utcnow().isoformat() + "Z"
     
+    # Event payload now includes explicit GeoIP fields for the Heat Map
     event = {
         "timestamp": current_time,
         "event_type": "alert",
@@ -93,6 +90,11 @@ while True:
         "dest_ip": dest,
         "dest_port": template["dest_port"],
         "proto": template["proto"],
+        
+        # HEAT MAP FIELDS:
+        "src_country": template["country"],
+        "src_country_code": template["country_code"],
+        
         "alert": {
             "action": "allowed",
             "gid": 1,
@@ -111,11 +113,11 @@ while True:
     try:
         response = requests.post(VECTOR_URL, json=event)
         if response.status_code == 200:
-            print(f"[{time.strftime('%H:%M:%S')}] Sent: {template['signature']} from {src}")
+            print(f"[{time.strftime('%H:%M:%S')}] Sent: {template['signature']} from {template['country']} ({src})")
         else:
             print(f"Vector Rejected: {response.status_code} - {response.text}")
             
     except Exception as e:
         print(f"Error sending log: {e}")
 
-    time.sleep(random.uniform(0.1, 1.5))
+    time.sleep(random.uniform(0.1, 1.0))

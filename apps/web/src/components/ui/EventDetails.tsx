@@ -21,7 +21,6 @@ export function EventDetails({ event, open, onOpenChange }: EventDetailsProps) {
   // Parse the raw JSON if it exists, otherwise just show the event object
   let rawData = {}
   try {
-     // @ts-expect-error - We know raw_json exists in the DB but might not be in our strict type yet
     rawData = event.raw_json ? JSON.parse(event.raw_json) : event
   } catch (e) {
     rawData = event
@@ -29,10 +28,10 @@ export function EventDetails({ event, open, onOpenChange }: EventDetailsProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-200 sm:w-135">
+      <SheetContent className="w-100 sm:w-135"> 
         <SheetHeader className="mb-6">
           <SheetTitle className="flex items-center gap-2">
-            {event.event_type === 'alert' ? 'Alert Details' : 'Flow Record'}
+            Alert Details
             <Badge variant={event.alert_severity === 1 ? "destructive" : "outline"}>
               Sev {event.alert_severity}
             </Badge>

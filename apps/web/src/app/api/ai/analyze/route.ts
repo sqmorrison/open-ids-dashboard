@@ -15,11 +15,11 @@ export async function POST(req: Request) {
     Analyze the following Intrusion Detection System (IDS) alert.
     
     Alert Data:
-    - Signature: ${event.alert_signature || "Unknown"}  <-- NOTE: Fixed variable name (alert_signature vs alert.signature)
-    - Severity: ${event.alert_severity || "Unknown"}    <-- NOTE: Fixed variable name
+    - Signature: ${event.alert_signature || "Unknown"}
+    - Severity: ${event.alert_severity || "Unknown"}
     - Source IP: ${event.src_ip}
     - Destination IP: ${event.dest_ip}:${event.dest_port}
-    - Payload (Snippet): ${event.payload_printable || "No payload data"}
+    - Payload (Snippet): ${event.raw_json || "No payload data"}
 
     Instructions:
     1. Explain what this specific attack IS in plain English.
