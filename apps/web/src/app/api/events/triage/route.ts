@@ -1,11 +1,5 @@
+import { getClickHouseClient } from '@/lib/clickhouse';
 import { NextResponse } from 'next/server';
-import { createClient } from '@clickhouse/client';
-
-const client = createClient({
-  host: process.env.CLICKHOUSE_HOST ?? 'http://localhost:8123',
-  username: process.env.CLICKHOUSE_USER ?? 'default',
-  password: process.env.CLICKHOUSE_PASSWORD ?? '',
-});
 
 export async function POST(request: Request) {
   try {
@@ -15,6 +9,8 @@ export async function POST(request: Request) {
     if (!event_uuid || !status) {
       return NextResponse.json({ error: 'Missing UUID or Status' }, { status: 400 });
     }
+
+    const client = getClickHouseClient();
 
     // Insert the new status into the triage table
     await client.insert({
