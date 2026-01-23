@@ -8,9 +8,7 @@
   enabled = true
   address = "0.0.0.0:8686"
 
-# -------------------------------------------------------------------------
 # SOURCES
-# -------------------------------------------------------------------------
 
 [sources.suricata_logs]
   type = "file"
@@ -23,44 +21,42 @@
   address = "0.0.0.0:8687"
   encoding = "json"
 
-# -------------------------------------------------------------------------
 # TRANSFORMS
-# -------------------------------------------------------------------------
 
 [transforms.suricata_parse]
   type = "remap"
   inputs = ["suricata_logs"]
   source = '''
-    # 1. Parse the log
+    # Parse the log
     . = parse_json!(.message)
 
-    # 2. Filter for alerts only
+    # Filter for alerts only
     if .event_type != "alert" {
       abort
     }
 
-    # 3. Capture Raw JSON (Before we delete fields)
+    # Capture Raw JSON (Before we delete fields)
     # We re-encode the current state to save as a string blob for inspection
     .raw_json = encode_json(.)
 
-    # 4. Standardize Timestamp
+    # Standardize Timestamp
     ts = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%f%z")
     .timestamp = to_unix_timestamp(ts, unit: "milliseconds")
 
-    # 5. Extract Network Fields
+    # Extract Network Fields
     .src_ip = .src_ip
     .dest_ip = .dest_ip
     .src_port = .src_port
     .dest_port = .dest_port
     .proto = to_string(.proto) ?? "UNKNOWN"
 
-    # 6. Extract Alert Details
+    # Extract Alert Details
     .alert_signature = to_string(.alert.signature) ?? "Unknown"
     .alert_severity = to_int(.alert.severity) ?? 3
     .alert_action = to_string(.alert.action) ?? "allowed"
     .alert_category = to_string(.alert.category) ?? "Unknown"  # Added to match schema
 
-    # 7. Cleanup (Remove nested objects to flatten the structure)
+    # Cleanup (Remove nested objects to flatten the structure)
     del(.alert)
     del(.flow_id)
     del(.payload)
@@ -73,14 +69,14 @@
   type = "remap"
   inputs = ["mock_http"]
   source = '''
-    # 1. Capture Raw JSON
+    # Capture Raw JSON
     .raw_json = encode_json(.)
 
-    # 2. Standardize Timestamp
+    # Standardize Timestamp
     ts = parse_timestamp!(.timestamp, format: "%Y-%m-%dT%H:%M:%S.%fZ")
     .timestamp = to_unix_timestamp(ts, unit: "milliseconds")
 
-    # 3. Defaults
+    # Defaults
     .proto = .proto || "TCP"
     .alert_signature = .alert.signature
     .alert_severity = .alert.severity
@@ -90,7 +86,7 @@
     .src_country = .src_country || "Unknown"
     .src_country_code = .src_country_code || "XX"
 
-    # 4. Cleanup
+    # Cleanup
     del(.alert)
   '''
 
@@ -98,11 +94,11 @@
 type = "remap"
 inputs = ["suricata_parse", "mock_normalize"]
 source = '''
-    # 1. Only initialize if the fields don't exist yet (prevents overwriting mock data)
+    # Only initialize if the fields don't exist yet (prevents overwriting mock data)
     .src_country = .src_country || "Unknown"
     .src_country_code = .src_country_code || "XX"
 
-    # 2. Only attempt lookup if it's still "Unknown"
+    # Only attempt lookup if it's still "Unknown"
     if .src_country == "Unknown" {
         geo_data, err = get_enrichment_table_record("geoip_table", { "ip": .src_ip })
 
@@ -113,20 +109,11 @@ source = '''
     }
 '''
 
-[transforms.add_uuid]
-  type = "remap"
-  inputs = ["enrich_geoip"]
-  source = '''
-    .event_uuid = uuid_v4()
-  '''
-
-# -------------------------------------------------------------------------
 # SINKS
-# -------------------------------------------------------------------------
 
 [sinks.clickhouse]
   type = "clickhouse"
-  inputs = ["add_uuid"]  
+  inputs = ["enrich_geoip"]  
   endpoint = "http://clickhouse:8123"
   database = "ids"
   table = "events"
