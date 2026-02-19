@@ -1,7 +1,7 @@
 # Aerial Eye (IDS Dashboard)
 
 ![License](https://img.shields.io/badge/license-Apache_2.0-red)
-![Status](https://img.shields.io/badge/status-MVP-success.svg)
+![Status](https://img.shields.io/badge/status-V1-success.svg)
 ![Stack](https://img.shields.io/badge/stack-Next.js_|_ClickHouse_|_Vector_|_Suricata_|_Ollama-orange.svg)
 
 **A high-performance, open-source SOC dashboard capable of ingesting, analyzing, and visualizing network threats in real-time.**
