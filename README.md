@@ -6,6 +6,8 @@
 
 **A high-performance, open-source SOC dashboard capable of ingesting, analyzing, and visualizing network threats in real-time.**
 
+![Live Log View](./assets/live_view.png)
+
 ## Architecture
 
 ```mermaid
@@ -39,11 +41,17 @@ Traditional SIEM solutions can be expensive and complex to deploy for small team
 - Real time ingestion: Handles high-throughput logs via Vector and ClickHouse
 - Geo-Enrichment: Automatically maps IP addresses to physical locations.
 - Business Intelligence: Calculates estimated cost savings based on blocked threats.
+![Business View](./assets/business_view.png)
 - Automated Alerting: Email notifications for Severity-1 critical issues
 - Local AI Co-pilot: Analyze logs you don't understand with an open source, local AI model, ensuring your data stays safe while demystifying what's in front of you
+![AI View](./assets/ai_view.png)
+![AI Response when analyzing a log](./assets/ai_response.png)
 - Natural Language to SQL: AI powered "ask the database" feature, your local AI model will generate a sql query based on your plain english request, ex "Show me all critical alerts from today" will return a select statement that can be edited if incorrect or then followed up on and run on the database. Only select queries are allowed.
 - Heat Map: Visualize where attacks are coming from across the globe
+![Heat Map View](./assets/heat_map.png)
 - Analyst Workflow: Triage mode, where individual events can be viewed by time, alert signature, and have a status associated with them (like new, reviewed, false positive, investigating). Simple notes can also be added to every event.
+![Triage View](./assets/triage_view.png)
+
 
 ## Installation
 
